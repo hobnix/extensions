@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="512" height="512" role="img" aria-label="hobnix">
+<style>.r{stroke:#17161d}@media (prefers-color-scheme:dark){.r{stroke:#f1f0f6}}</style>
+<circle class="r" cx="50" cy="50" r="38" fill="none" stroke-width="6"/>
+<path d="M36.5 33.5 L63.5 66.5 M50 50 L36.5 66.5" fill="none" stroke="#9184d9" stroke-width="7"/>
+</svg>

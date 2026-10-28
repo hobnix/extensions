@@ -1,0 +1,67 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "posters"
+title = "Posters drawn from the command line or the web interface"
+title_de = "Poster aus der Kommandozeile oder der Weboberfläche"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+# No NixOS module: this capability is scripts and a web page. Off by default; name it in machine.toml
+# (capabilities = ["posters"]) to get the commands and the page. Nothing else changes.
+notes = "NOTES.md"
+# An extension package (docs/PLAN-extensions.md): hs ext posters generate, the rows are in commands.tsv.
+extension = true
+
+# What the web interface may ask for and start, only while the package is on (scripts/web-serve.py ext_load_web). Each read must be a
+# `sys ext posters ...` row of commands.tsv; the changes need its plan and start rows. Area of the changes: "ext/posters".
+# The picture itself is served by GET /api/poster/<file> (a route of the core that reads the poster folder).
+[[web.reads]]
+words = "list"
+kind = "tsv"
+ttl = 5
+
+# draw a poster
+[[web.changes]]
+fixed = ['^generate$']
+opts = [
+  { flag = "--eyebrow", pattern = '^[^\x00-\x1f]{1,80}$' },
+  { flag = "--title", pattern = '^[^\x00-\x1f]{1,80}$' },
+  { flag = "--color", pattern = '^([a-z]{3,12}|#[0-9a-fA-F]{6})$' },
+  { flag = "--seed", pattern = '^[0-9]{1,9}$' },
+  { flag = "--case", pattern = '^(upper|keep)$' },
+]
+
+# delete one
+[[web.changes]]
+patterns = ['^delete$', '^poster-[A-Za-z0-9._-]{1,120}\.png$']
+
+# The page of the package (web/src/shell/GenericPage.svelte renders it at /extensions/posters).
+[web.page]
+title = "Posters"
+icon = "image"
+crumb = "Extensions"
+sub = "halftone pictures with a title, drawn on the server"
+
+[[web.page.actions]]
+label = "New poster…"
+icon = "plus"
+form = "PosterForm"
+primary = true
+
+# rows: file, bytes, modified (epoch), newest first
+[[web.page.blocks]]
+type = "gallery"
+read = "list"
+key = "file"
+image = "/api/poster/{file|u}"
+empty = "No poster yet. “New poster…” draws one; it is kept here."
+columns = [
+  { key = "file", label = "File" },
+  { key = "size", label = "Size", col = 1, fmt = "bytes" },
+  { key = "time", label = "Made", col = 2, fmt = "datetime" },
+  { key = "title", label = "Title", col = 0, fmt = "words" },
+]
+rowActions = [
+  { label = "Download", icon = "download-simple", href = "/api/poster/{file|u}", download = "{file}" },
+  { label = "Delete…", icon = "trash", danger = true, plan = ["ext/posters", "delete", "{file}"], planTitle = "Delete {file}" },
+]

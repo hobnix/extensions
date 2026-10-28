@@ -1,0 +1,9 @@
+# Manifest of a package (docs/PLAN-packages.md). The rest of this extension is described by capability.toml beside it until the
+# packages move out of this repository.
+name = "games"
+version = "1.0.0"
+kind = "extension"
+title = "Game PCs (wake, list) and the Game streaming page"
+title_de = "Spiele-PCs (einschalten, Liste) und die Seite Game streaming"
+requires_core = ">=1"
+audience = "generic"

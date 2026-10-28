@@ -1,0 +1,9 @@
+# Commands of the extension package "posters" (docs/PLAN-extensions.md). Same columns as scripts/lib/registry.tsv:
+# kind	path	script	args	help	help.de	flags
+# Only rows under this package's own name (user: ext posters ..., sys: sys ext posters ...) are loaded, and only while the package is on.
+# The script is a path under scripts/ or @/file inside this folder (the scripts of this package live here).
+user	ext posters generate	@/generate-poster-guided.sh	{rest}	draw a halftone poster (PNG) step by step: eyebrow, title, colour, seed; for example the picture of a Jellyfin library	einen Halbton-Poster (PNG) Schritt für Schritt zeichnen: Eyebrow, Titel, Farbe, Seed; zum Beispiel das Bild einer Jellyfin-Bibliothek	guided,topic:system,changes
+sys	sys ext posters generate	@/generate-poster.sh	{rest}	draw a poster as data: --eyebrow and --title required, colour and seed random; prints status, file, color, seed, size (never asks)	-
+sys	sys ext posters list	@/poster-change.sh	list	the posters the web interface drew, newest first: file, bytes, modified (epoch)	-
+sys	sys ext posters plan <action>	@/poster-change.sh	plan {1} {rest}	what drawing or deleting a poster would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused)	-
+sys	sys ext posters start <action>	@/poster-change.sh	start {1} {rest}	draw (hs sys ext posters start generate --eyebrow <text> --title <text> [--color c] [--seed n]) or delete (delete <file>) a poster; generate prints the file, colour, seed and size	-

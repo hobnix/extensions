@@ -1,0 +1,18 @@
+# The index of this repository (docs/PLAN-packages.md). `hs pkg` reads it at a signed release tag; the versions here must equal
+# the package.toml of each folder (`python3 scripts/pkg.py repo-check .` in the core checks that).
+
+[package.games]
+version = "1.0.0"
+kind = "extension"
+path = "extensions/games"
+title = "Game PCs (wake, list) and the Game streaming page"
+requires_core = ">=1"
+audience = "generic"
+
+[package.posters]
+version = "1.0.0"
+kind = "extension"
+path = "extensions/posters"
+title = "Posters drawn from the command line or the web interface"
+requires_core = ">=1"
+audience = "generic"

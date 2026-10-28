@@ -1,0 +1,9 @@
+# Manifest of a package (docs/PLAN-packages.md). The rest of this extension is described by capability.toml beside it until the
+# packages move out of this repository.
+name = "posters"
+version = "1.0.0"
+kind = "extension"
+title = "Posters drawn from the command line or the web interface"
+title_de = "Poster aus der Kommandozeile oder der Weboberfläche"
+requires_core = ">=1"
+audience = "generic"

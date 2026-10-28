@@ -1,0 +1,69 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "games"
+title = "Game PCs (wake, list) and the Game streaming page"
+title_de = "Spiele-PCs (einschalten, Liste) und die Seite Game streaming"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+# No NixOS module: this capability is scripts and a web page. Off by default; name it in machine.toml
+# (capabilities = ["games"]) to get the commands and the page. Nothing else changes.
+notes = "NOTES.md"
+# An extension package (docs/PLAN-extensions.md): hs ext games <command>, the rows are in commands.tsv.
+extension = true
+
+# What the web interface may ask for and start, only while the package is on (scripts/web-serve.py ext_load_web). Each read must be a
+# `sys ext games ...` row of commands.tsv; the changes need its plan and start rows. Area of the changes: "ext/games".
+[[web.reads]]
+words = "list"
+kind = "tsv"
+ttl = 30
+
+[[web.reads]]
+words = "state"
+kind = "tsv"
+ttl = 15
+
+# wake or forget a saved game PC
+[[web.changes]]
+patterns = ['^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$', '^(wake|remove)$']
+
+# save a game PC (the plan checks the MAC and answers "needs mac" while it is missing)
+[[web.changes]]
+fixed = ['^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$', '^add$']
+opts = [
+  { flag = "--mac", pattern = '^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$' },
+  { flag = "--ip", pattern = '^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$' },
+]
+
+# The page of the package (web/src/shell/GenericPage.svelte renders it at /extensions/games).
+# Blocks name the reads above by their words. `{name}` in a plan or label is the value of the row's column `name`.
+[web.page]
+title = "Game streaming"
+icon = "monitor-play"
+crumb = "Extensions"
+sub = "game PCs the server can wake on the LAN"
+
+[[web.page.actions]]
+label = "Add PC"
+icon = "plus"
+form = "PcForm"
+primary = true
+
+[[web.page.blocks]]
+type = "table"
+title = "Game PCs"
+read = "list"
+key = "name"
+empty = "No game PC saved yet. Use Add PC."
+joins = [ { read = "state", key = "name", col = 2, as = "state" } ]
+columns = [
+  { key = "name", label = "Name", icon = "desktop" },
+  { key = "mac", label = "MAC", col = 1, kind = "mono", optional = true },
+  { key = "ip", label = "Address", col = 2, kind = "mono" },
+  { key = "state", label = "State", kind = "dot", map = { up = ["ok", "Sunshine answers"], down = ["off", "no answer (off, asleep, or Sunshine not running)"], unknown = ["off", "no address saved"] } },
+]
+rowActions = [
+  { label = "Wake", icon = "power", title = "Send the Wake-on-LAN packet to {name}", plan = ["ext/games", "{name}", "wake"], planTitle = "Wake {name}" },
+  { label = "Remove", icon = "x", iconOnly = true, danger = true, title = "Remove {name} from the list", plan = ["ext/games", "{name}", "remove"], planTitle = "Remove {name}" },
+]

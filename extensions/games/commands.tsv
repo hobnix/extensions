@@ -1,0 +1,12 @@
+# Commands of the extension package "games" (docs/PLAN-extensions.md). Same columns as scripts/lib/registry.tsv:
+# kind	path	script	args	help	help.de	flags
+# Only rows under this package's own name (user: ext games ..., sys: sys ext games ...) are loaded, and only while the package is on.
+# The script is a path under scripts/ or @/file inside this folder (the scripts of this package live here).
+user	ext games list	@/pc.sh	list	game PCs saved for Sunshine streaming (name, MAC, address)	gespeicherte Spiele-PCs für Sunshine (Name, MAC, Adresse)	topic:network,reads
+user	ext games add	@/pc.sh	add {rest}	save a game PC: hs ext games add <name> <mac> [<ip>]	einen Spiele-PC merken: hs ext games add <Name> <MAC> [<IP>]	topic:network,changes
+user	ext games remove	@/pc.sh	remove {rest}	forget a saved game PC: hs ext games remove <name>	einen gemerkten Spiele-PC vergessen: hs ext games remove <Name>	topic:network,changes
+user	ext games wake	@/pc.sh	wake {rest}	switch a game PC on (Wake-on-LAN), --wait until its Sunshine answers: hs ext games wake <name> [--wait]	einen Spiele-PC einschalten (Wake-on-LAN), mit --wait bis sein Sunshine antwortet: hs ext games wake <Name> [--wait]	topic:network,changes
+sys	sys ext games list	@/pc.sh	--list	game PCs as name, mac, address (address - when none)	-
+sys	sys ext games state	@/pc.sh	--state	game PCs as name, address, state (up = Sunshine answers on port 47989, down, unknown = no address); a 1 s try each	-
+sys	sys ext games plan <name> <action>	@/pc-change.sh	plan {1} {2} {rest}	what waking, saving or forgetting a game PC would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused, 2 = the MAC is missing)	-
+sys	sys ext games start <name> <action>	@/pc-change.sh	start {1} {2} {rest}	do it (hs sys ext games start <name> wake | add --mac <mac> [--ip <ip>] | remove), answers status done	-

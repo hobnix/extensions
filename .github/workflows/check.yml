@@ -1,0 +1,21 @@
+name: check
+on: [push, pull_request]
+env:
+  # the core checkout the packages are validated against (change it when the core lives elsewhere)
+  CORE_REPOSITORY: hobnix/server
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          path: core
+      - name: Manifests and index
+        run: |
+          mkdir tree && ln -s "$PWD/extensions" "tree/capabilities"
+          HS_PACKAGES_ROOT="$PWD/tree" python3 -I core/scripts/pkg.py validate
+          python3 -I core/scripts/pkg.py repo-check .
+      - name: Shell syntax
+        run: for f in extensions/*/*.sh; do [ -f "$f" ] && bash -n "$f"; done; true
