@@ -7,6 +7,7 @@ CORE=${HS_CORE:-$HERE/core}
 # shellcheck source=/dev/null
 . "$CORE/tests/lib.sh"
 PKGS=$HERE/extensions
+export HS_PACKAGES_DIR=$PKGS   # the core finds the extensions here (it has none of its own)
 CATALOG=$CORE/scripts/lib/i18n/de.tsv
 KEYS="python3 -I $CORE/scripts/dev/i18n-keys.py"
 has() { [ -f "$1" ] && awk -F'\t' -v k="$2" '$1 == k { f = 1 } END { exit !f }' "$1"; }   # the exact text, not a part of a longer one

@@ -9,6 +9,7 @@ CORE=${HS_CORE:-$HERE/core}
 . "$CORE/tests/lib.sh"
 export HS_SCRIPTS=$CORE/scripts
 PKGS=$HERE/extensions
+export HS_PACKAGES_DIR=$PKGS   # the core finds the extensions here (it has none of its own)
 export HS_LANG=en HS_PLAIN=1 HS_CALLER=test HS_PYTHON=python3
 unset HS_GUIDED_TTY
 export MSYS2_ARG_CONV_EXCL='*'

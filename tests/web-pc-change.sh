@@ -8,6 +8,7 @@ CORE=${HS_CORE:-$HERE/core}
 . "$CORE/tests/lib.sh"
 export HS_SCRIPTS=$CORE/scripts
 PKGS=$HERE/extensions
+export HS_PACKAGES_DIR=$PKGS   # the core finds the extensions here (it has none of its own)
 export HS_PLAIN=1 HS_LANG=en
 unset HS_CALLER HS_GUIDED_TTY
 export HS_STATE_DIR=$WORK/state; mkdir -p "$HS_STATE_DIR"
