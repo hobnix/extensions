@@ -1,0 +1,17 @@
+# German texts of the extension posters (English text <TAB> translation; the shared helpers' texts are in the core catalog)
+                          [--size <WxH>] [--case upper|keep] [--out <file|folder>] [--force]	                          [--size <BxH>] [--case upper|keep] [--out <Datei|Ordner>] [--force]
+Colour	Farbe
+Colour as #rrggbb	Farbe als #rrggbb
+Draw another one with a new seed?	Noch eins mit einem neuen Seed zeichnen?
+Drawing the poster	Das Poster wird gezeichnet
+Eyebrow (the small line above the title, for example Library)	Eyebrow (die kleine Zeile über dem Titel, zum Beispiel Bibliothek)
+Folder (full path, it must exist)	Ordner (voller Pfad, er muss existieren)
+No shares found: the poster is saved in this folder.	Keine Freigaben gefunden: das Poster wird in diesem Ordner gespeichert.
+Saved: %s	Gespeichert: %s
+Seed	Seed
+Seed (a whole number)	Seed (eine ganze Zahl)
+Seed (the same seed always draws the same poster)	Seed (derselbe Seed zeichnet immer dasselbe Poster)
+The eyebrow and the title are required.	Eyebrow und Titel sind nötig.
+Title (for example Movies)	Titel (zum Beispiel Filme)
+Where to save it?	Wo soll es gespeichert werden?
+usage: hs ext posters generate [--eyebrow <text>] [--title <text>] [--color <name|#rrggbb>] [--seed <n>]	Aufruf: hs ext posters generate [--eyebrow <Text>] [--title <Text>] [--color <Name|#rrggbb>] [--seed <n>]

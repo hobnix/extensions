@@ -1,0 +1,18 @@
+# German texts of the extension games (English text <TAB> translation; the shared helpers' texts are in the core catalog)
+       hs ext games add <name> <mac> [<ip>]	       hs ext games add <Name> <MAC> [<IP>]
+       hs ext games remove <name>	       hs ext games remove <Name>
+       hs ext games wake <name> [--wait]	       hs ext games wake <Name> [--wait]
+'%s' did not answer within %s seconds. Is Wake-on-LAN on in its BIOS and is Sunshine running?	'%s' hat nicht innerhalb von %s Sekunden geantwortet. Ist Wake-on-LAN im BIOS an und läuft Sunshine?
+'%s' is not a MAC address (like aa:bb:cc:dd:ee:ff)	'%s' ist keine MAC-Adresse (wie aa:bb:cc:dd:ee:ff)
+'%s' is not a usable name (letters, digits, . _ -)	'%s' ist kein brauchbarer Name (Buchstaben, Ziffern, . _ -)
+'%s' is not an IPv4 address	'%s' ist keine IPv4-Adresse
+'%s' is up and Sunshine answers	'%s' ist an und Sunshine antwortet
+No PC called '%s'	Es gibt keinen PC namens '%s'
+No PC saved yet.	Noch kein PC gespeichert.
+Removed '%s'	'%s' entfernt
+Saved '%s' (%s)	'%s' gemerkt (%s)
+Waiting for Sunshine on '%s' (%s)	Warte auf Sunshine auf '%s' (%s)
+Wake-up packet sent to '%s' (%s)	Aufweck-Paket an '%s' gesendet (%s)
+python3 is needed to send the packet	python3 wird gebraucht, um das Paket zu senden
+usage: hs ext games list	Aufruf: hs ext games list
+MAC	MAC
