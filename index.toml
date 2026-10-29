@@ -9,6 +9,14 @@ title = "Game PCs (wake, list) and the Game streaming page"
 requires_core = ">=1"
 audience = "generic"
 
+[package.passthrough]
+version = "1.0.0"
+kind = "extension"
+path = "extensions/passthrough"
+title = "Passthrough domains (outside domains to reverse proxies on the LAN)"
+requires_core = ">=1"
+audience = "generic"
+
 [package.posters]
 version = "1.0.0"
 kind = "extension"

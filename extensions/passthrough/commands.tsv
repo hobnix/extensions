@@ -1,0 +1,14 @@
+# Commands of the extension package "passthrough" (docs/PLAN-extensions.md). Same columns as scripts/lib/registry.tsv:
+# kind	path	script	args	help	help.de	flags
+# Only rows under this package's own name (user: ext passthrough ..., sys: sys ext passthrough ...) are loaded, and only while the package is on.
+# The script is a path under scripts/ or @/file inside this folder (the scripts of this package live here).
+user	ext passthrough list	@/passthrough.sh	list	outside domains forwarded to reverse proxies on the LAN	fremde Domains, die an Reverse-Proxys im LAN durchgereicht werden	topic:network,reads
+user	ext passthrough status	@/passthrough.sh	status	public ports, who holds them, do the targets answer	öffentliche Ports, wer sie hält, antworten die Ziele	topic:network,reads
+user	ext passthrough add	@/passthrough.sh	add {rest}	forward a domain and its subdomains: hs ext passthrough add <domain> <address> [--https-port N] [--http-port N|--no-http] [--proxy-protocol] [--container-ok --confirm <domain>]	eine Domain und ihre Subdomains durchreichen: hs ext passthrough add <Domain> <Adresse> [--https-port N] [--http-port N|--no-http] [--proxy-protocol] [--container-ok --confirm <Domain>]	topic:network,changes
+user	ext passthrough remove	@/passthrough.sh	remove {rest}	stop forwarding a domain (type the domain): hs ext passthrough remove <domain>	eine Domain nicht mehr durchreichen (Domain eintippen): hs ext passthrough remove <Domain>	topic:network,changes
+user	ext passthrough refresh	@/passthrough.sh	refresh	write the route files again (after changing the public ports)	die Routen-Dateien neu schreiben (nach einer Änderung der öffentlichen Ports)	topic:network,changes
+sys	sys ext passthrough list	@/passthrough.sh	--list	domains as domain, address, https, http, proxy (- when empty)	-
+sys	sys ext passthrough state	@/passthrough.sh	--state	domains as domain, address, https_state, http_state (up|down|-); a 1 s try each	-
+sys	sys ext passthrough status	@/passthrough.sh	--status	key<TAB>value: gateway, public_https, public_http, port owners, domains	-
+sys	sys ext passthrough plan <domain> <action>	@/passthrough-change.sh	plan {1} {2} {rest}	what adding or removing would do, as data (exit 0 ok, 1 refused, 2 address missing)	-
+sys	sys ext passthrough start <domain> <action>	@/passthrough-change.sh	start {1} {2} {rest}	do it; remove needs --confirm <domain>; answers status done	-
