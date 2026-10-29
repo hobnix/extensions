@@ -1,0 +1,83 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "passthrough"
+title = "Passthrough domains (outside domains to reverse proxies on the LAN)"
+title_de = "Durchreich-Domains (fremde Domains an Reverse-Proxys im LAN)"
+kind = "feature"
+requires = ["gateway"]
+provides = []
+needs = []
+# No NixOS module: Traefik, the public entrypoints and the firewall are the capability gateway's (gatewayPublicHttps,
+# gatewayPublicHttp), so hs ext enable passthrough needs no rebuild.
+notes = "NOTES.md"
+# An extension package (docs/PLAN-extensions.md): hs ext passthrough <command>, the rows are in commands.tsv.
+extension = true
+
+# What the web interface may ask for and start, only while the package is on (scripts/web-serve.py ext_load_web). Area: "ext/passthrough".
+[[web.reads]]
+words = "list"
+kind = "tsv"
+ttl = 30
+
+[[web.reads]]
+words = "state"
+kind = "tsv"
+ttl = 15
+
+[[web.reads]]
+words = "status"
+kind = "tsv"
+ttl = 30
+
+# stop forwarding a domain (web-serve.py appends --confirm <typed domain> to start)
+[[web.changes]]
+patterns = ['^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$', '^remove$']
+
+# forward a domain (the plan checks everything again and answers "needs address" while it is missing)
+[[web.changes]]
+fixed = ['^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$', '^add$']
+opts = [
+  { flag = "--address", pattern = '^([0-9]{1,3}(\.[0-9]{1,3}){3}|[0-9a-fA-F:]{2,39})$' },
+  { flag = "--https-port", pattern = '^[0-9]{1,5}$' },
+  { flag = "--http-port", pattern = '^[0-9]{1,5}$' },
+  { flag = "--no-http" },
+  { flag = "--proxy-protocol" },
+  { flag = "--container-ok" },
+]
+
+[web.page]
+title = "Passthrough domains"
+icon = "arrows-split"
+crumb = "Extensions"
+sub = "outside domains forwarded to reverse proxies on the LAN"
+
+[[web.page.actions]]
+label = "Add domain"
+icon = "plus"
+form = "PassthroughForm"
+primary = true
+
+[[web.page.blocks]]
+type = "kv"
+title = "Gateway"
+read = "status"
+pairs = true
+
+[[web.page.blocks]]
+type = "table"
+title = "Domains"
+read = "list"
+key = "domain"
+empty = "No domain forwarded yet. Use Add domain."
+joins = [ { read = "state", key = "domain", col = 2, as = "https_state" } ]
+columns = [
+  { key = "domain", label = "Domain", icon = "globe" },
+  { key = "address", label = "Address", col = 1, kind = "mono" },
+  { key = "https", label = "HTTPS", col = 2, kind = "mono" },
+  { key = "http", label = "HTTP", col = 3, kind = "mono", optional = true },
+  { key = "proxy", label = "PROXY", col = 4, optional = true },
+  { key = "https_state", label = "Target", kind = "dot", map = { up = ["ok", "the target answers"], down = ["bad", "no answer from the target"] } },
+]
+rowActions = [
+  { label = "Edit", icon = "pencil-simple", iconOnly = true, title = "Change the target of {domain}", form = "PassthroughForm", edit = true },
+  { label = "Remove", icon = "x", iconOnly = true, danger = true, title = "Stop forwarding {domain}", plan = ["ext/passthrough", "{domain}", "remove"], planTitle = "Remove {domain}" },
+]

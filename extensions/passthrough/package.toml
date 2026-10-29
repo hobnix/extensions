@@ -1,0 +1,9 @@
+# Manifest of a package (docs/PLAN-packages.md). The rest of this extension is described by capability.toml beside it until the
+# packages move out of this repository.
+name = "passthrough"
+version = "1.0.0"
+kind = "extension"
+title = "Passthrough domains (outside domains to reverse proxies on the LAN)"
+title_de = "Durchreich-Domains (fremde Domains an Reverse-Proxys im LAN)"
+requires_core = ">=1"
+audience = "generic"
