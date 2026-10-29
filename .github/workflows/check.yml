@@ -19,3 +19,5 @@ jobs:
           python3 -I core/scripts/pkg.py repo-check .
       - name: Shell syntax
         run: for f in extensions/*/*.sh; do [ -f "$f" ] && bash -n "$f"; done; true
+      - name: Tests (against the core checked out above)
+        run: HS_CORE="$PWD/core" HS_TEST_CI=1 bash tests/run-all.sh
