@@ -11,6 +11,7 @@ CORE=${HS_CORE:-$HERE/core}
 . "$CORE/tests/lib.sh"
 export HS_SCRIPTS=$CORE/scripts
 PKGS=$HERE/extensions
+export HS_PACKAGES_DIR=$PKGS   # the core finds the extensions here (it has none of its own)
 command -v traefik >/dev/null 2>&1 || { echo "traefik is not installed: skipped"; exit 77; }
 command -v curl >/dev/null 2>&1 || { echo "curl is not installed: skipped"; exit 77; }
 PT=$PKGS/passthrough/passthrough.py
