@@ -1,0 +1,14 @@
+# Commands of the extension package "ad-selfservice" (docs/PLAN-extensions.md). Same columns as scripts/lib/registry.tsv:
+# kind	path	script	args	help	help.de	flags
+# Only rows under this package's own name (user: ext ad-selfservice ..., sys: sys ext ad-selfservice ...) are loaded, and only while the package is on.
+# The script is a path under scripts/ or @/file inside this folder (the scripts of this package live here).
+user	ext ad-selfservice status	@/selfservice.sh	status	is the password form running, where it is reachable, the limits	läuft das Passwortformular, wo es erreichbar ist, die Grenzen	topic:users,reads
+user	ext ad-selfservice log	@/selfservice.sh	log {rest}	the last password changes and failed tries (never a password): [--lines N]	die letzten Passwortänderungen und Fehlversuche (nie ein Passwort): [--lines N]	topic:users,reads
+user	ext ad-selfservice start	@/selfservice.sh	start	start the password form (needs a TLS route); it starts again after a reboot	das Passwortformular starten (braucht eine TLS-Route); es startet nach einem Neustart wieder	topic:users,changes
+user	ext ad-selfservice stop	@/selfservice.sh	stop	stop the password form (also after a reboot)	das Passwortformular stoppen (auch nach einem Neustart)	topic:users,changes
+user	ext ad-selfservice expose	@/selfservice.sh	expose {rest}	who can reach the form: expose private | expose public <full name> (shows a plan, type the name)	wer das Formular erreicht: expose private | expose public <voller Name> (zeigt einen Plan, Namen eintippen)	topic:users,changes
+sys	sys ext ad-selfservice status	@/selfservice.sh	--status	key<TAB>value: running, wanted, port, dc, dc_address, exposure, fqdn, public_proxy, tls_route, ad_lockout_threshold, limits, package (- when empty)	-
+sys	sys ext ad-selfservice log	@/selfservice.sh	--log	time, ip, user, result (ok|bad|policy|limited|unavailable|input|plain-http), newest first, at most 200	-
+sys	sys ext ad-selfservice plan <action>	@/selfservice-change.sh	plan {1} {rest}	what start, stop or expose would do, as data (exit 0 ok, 1 refused)	-
+sys	sys ext ad-selfservice start <action>	@/selfservice-change.sh	start {1} {rest}	do it; expose public needs --confirm <full name>; answers status done	-
+sys	sys ext ad-selfservice boot	@/selfservice-change.sh	boot	at boot (core unit hs-ext-boot): start the unit again if it was started before; never asks	-

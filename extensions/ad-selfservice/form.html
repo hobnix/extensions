@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="{lang}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>{title}</title>
+<style>body{font-family:system-ui,sans-serif;background:#f4f5f7;color:#1b1f24;margin:0;display:flex;justify-content:center}
+main{background:#fff;margin:3rem 1rem;padding:1.5rem 2rem;border-radius:8px;box-shadow:0 1px 4px #0003;width:100%;max-width:26rem}
+h1{font-size:1.3rem;margin:0 0 1rem}label{display:block;margin:.8rem 0 .2rem;font-size:.9rem}
+input{width:100%;box-sizing:border-box;padding:.5rem;font-size:1rem;border:1px solid #8a919a;border-radius:4px}
+button{margin-top:1.2rem;padding:.6rem 1.2rem;font-size:1rem;border:0;border-radius:4px;background:#1f6feb;color:#fff;cursor:pointer}
+.msg{padding:.6rem .8rem;border-radius:4px;margin:0 0 1rem}.ok{background:#dafbe1;color:#0a3b1a}.err{background:#ffebe9;color:#68100b}</style>
+</head>
+<body>
+<main>
+<h1>{title}</h1>
+{msg}
+<form method="post" action="/password" autocomplete="off">
+<input type="hidden" name="token" value="{token}">
+<label for="user">[[User name]]</label>
+<input id="user" name="user" type="text" required maxlength="128" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username">
+<label for="old">[[Current password]]</label>
+<input id="old" name="old" type="password" required maxlength="256" autocomplete="current-password">
+<label for="new">[[New password]]</label>
+<input id="new" name="new" type="password" required maxlength="256" autocomplete="new-password">
+<label for="repeat">[[Repeat the new password]]</label>
+<input id="repeat" name="repeat" type="password" required maxlength="256" autocomplete="new-password">
+<button type="submit">[[Change password]]</button>
+</form>
+</main>
+</body>
+</html>

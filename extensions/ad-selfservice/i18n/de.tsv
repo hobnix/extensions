@@ -1,0 +1,78 @@
+# German texts of the extension ad-selfservice (English <TAB> German), loaded while the package is on. Also the texts of the web form (selfservice.py).
+       hs ext ad-selfservice expose private [--yes]	       hs ext ad-selfservice expose private [--yes]
+       hs ext ad-selfservice expose public <full name> [--confirm <full name>]	       hs ext ad-selfservice expose public <voller Name> [--confirm <voller Name>]
+usage: hs ext ad-selfservice status | log [--lines N] | start | stop	Aufruf: hs ext ad-selfservice status | log [--lines N] | start | stop
+%s per account, %s per IP, %s in all (tries/seconds)	%s je Konto, %s je IP, %s insgesamt (Versuche/Sekunden)
+A password has 1 to 256 characters and no line breaks.	Ein Passwort hat 1 bis 256 Zeichen und keine Zeilenumbrüche.
+AD lockout threshold	AD-Sperrschwelle
+Anyone on the internet can reach the form. A stranger can try passwords and block the form for an account for 15 minutes.	Jeder im Internet erreicht das Formular. Ein Fremder kann Passwörter probieren und das Formular für ein Konto 15 Minuten lang sperren.
+Cancelled.	Abgebrochen.
+Change password	Passwort ändern
+Change your password	Passwort ändern
+Current password	Aktuelles Passwort
+Domain controller	Domänencontroller
+Enter the current and the new password.	Gib das aktuelle und das neue Passwort ein.
+Enter your user name.	Gib deinen Benutzernamen ein.
+IP	IP
+Keep the AD lockout threshold at 0 or above 3, or a stranger could lock a real account.	Lass die AD-Sperrschwelle bei 0 oder über 3, sonst könnte ein Fremder ein echtes Konto sperren.
+Limits	Grenzen
+Make the form private and stop it?	Das Formular privat machen und stoppen?
+New password	Neues Passwort
+No tries recorded yet.	Noch keine Versuche aufgezeichnet.
+Nobody to ask: add --confirm %s to go on.	Niemand zum Fragen: mit --confirm %s geht es weiter.
+Nobody to ask: add --yes to go on.	Niemand zum Fragen: mit --yes geht es weiter.
+Not found.	Nicht gefunden.
+Password self-service	Passwort selbst ändern
+Public name	Öffentlicher Name
+Reachable	Erreichbar
+Repeat the new password	Neues Passwort wiederholen
+Running	Läuft
+Started on purpose	Absichtlich gestartet
+TLS route	TLS-Route
+The form has expired. Reload the page and try again.	Das Formular ist abgelaufen. Lade die Seite neu und versuche es noch einmal.
+The form is stopped: no TLS route is left, and the form only runs with one.	Das Formular wird gestoppt: es bleibt keine TLS-Route, und es läuft nur mit einer.
+The form should be running but is not.	Das Formular sollte laufen, tut es aber nicht.
+The new password and the repeat are not the same.	Das neue Passwort und die Wiederholung sind nicht gleich.
+The new password does not meet the password rules of the domain.	Das neue Passwort erfüllt die Passwortregeln der Domäne nicht.
+The new password is too short.	Das neue Passwort ist zu kurz.
+The new password must be more complex: upper and lower case letters, digits or symbols.	Das neue Passwort muss komplexer sein: Groß- und Kleinbuchstaben, Ziffern oder Sonderzeichen.
+The new password must differ from the current one.	Das neue Passwort muss sich vom aktuellen unterscheiden.
+The new password was used before.	Das neue Passwort wurde schon einmal benutzt.
+The number of lines must be a number.	Die Zeilenzahl muss eine Zahl sein.
+The package ad-selfservice is off.	Das Paket ad-selfservice ist aus.
+The password could not be changed right now. Try again later.	Das Passwort konnte gerade nicht geändert werden. Versuche es später noch einmal.
+The password form is running.	Das Passwortformular läuft.
+The password form is stopped.	Das Passwortformular ist gestoppt.
+The password was changed too recently.	Das Passwort wurde erst vor Kurzem geändert.
+The request was not understood.	Die Anfrage wurde nicht verstanden.
+The service ad-selfservice is now %s.	Der Dienst ad-selfservice ist jetzt %s.
+The service is busy. Try again in a moment.	Der Dienst ist ausgelastet. Versuche es gleich noch einmal.
+The typed name does not match: %s	Der eingetippte Name passt nicht: %s
+The user name is not valid.	Der Benutzername ist nicht gültig.
+The user name or the current password is wrong.	Der Benutzername oder das aktuelle Passwort ist falsch.
+There is no TLS route to the form, so it cannot start.	Es gibt keine TLS-Route zum Formular, es kann also nicht starten.
+Too many tries. Wait a few minutes and try again.	Zu viele Versuche. Warte ein paar Minuten und versuche es dann noch einmal.
+Use the https address.	Benutze die https-Adresse.
+User	Benutzer
+User name	Benutzername
+Your password was changed.	Dein Passwort wurde geändert.
+could not declare the service ad-selfservice	der Dienst ad-selfservice konnte nicht angelegt werden
+could not make the service private	der Dienst konnte nicht privat gemacht werden
+could not make the service public	der Dienst konnte nicht öffentlich gemacht werden
+expose private or expose public <full name>	expose private oder expose public <voller Name>
+expose public needs the full name, for example pw.example.org	expose public braucht den vollen Namen, zum Beispiel pw.example.org
+hs services apply makes the route; the form starts only when that route is there (start)	hs services apply macht die Route; das Formular startet nur, wenn diese Route da ist (start)
+hs services apply removes the public route	hs services apply entfernt die öffentliche Route
+it starts again after a reboot until you run stop	es startet nach einem Neustart wieder, bis du stop ausführst
+it stays stopped after a reboot	es bleibt auch nach einem Neustart gestoppt
+make the password form private	das Passwortformular privat machen
+no TLS route to /password: the form is only served over HTTPS (reverseProxy = traefik-public and a public name; the local proxy has no HTTPS yet)	keine TLS-Route zu /password: das Formular gibt es nur über HTTPS (reverseProxy = traefik-public und ein öffentlicher Name; der lokale Proxy hat noch kein HTTPS)
+smbpasswd or python3 was not found (the Samba client tools)	smbpasswd oder python3 wurde nicht gefunden (die Samba-Client-Werkzeuge)
+start the password form	das Passwortformular starten
+stop the password form	das Passwortformular stoppen
+systemd-run could not start the unit hs-ad-selfservice (are you root?)	systemd-run konnte die Einheit hs-ad-selfservice nicht starten (bist du root?)
+the capability ad is off: there is no domain to change passwords in	die Fähigkeit ad ist aus: es gibt keine Domäne, in der Passwörter geändert werden
+the capability gateway is off: there is no proxy that gives the form its HTTPS address	die Fähigkeit gateway ist aus: es gibt keinen Proxy, der dem Formular seine HTTPS-Adresse gibt
+the form can only be public with reverseProxy = traefik-public (the proxy in a container cannot reach 127.0.0.1)	das Formular kann nur mit reverseProxy = traefik-public öffentlich sein (der Proxy im Container erreicht 127.0.0.1 nicht)
+the package ad-selfservice is off (hs ext enable ad-selfservice)	das Paket ad-selfservice ist aus (hs ext enable ad-selfservice)
+the service ad-selfservice is not public any more	der Dienst ad-selfservice ist nicht mehr öffentlich

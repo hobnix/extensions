@@ -13,7 +13,7 @@ KEYS="python3 -I $CORE/scripts/dev/i18n-keys.py"
 has() { [ -f "$1" ] && awk -F'\t' -v k="$2" '$1 == k { f = 1 } END { exit !f }' "$1"; }   # the exact text, not a part of a longer one
 
 # extension -> the scripts whose messages are translated
-declare -A SCRIPTS_OF=([games]="pc.sh" [posters]="generate-poster-guided.sh")
+declare -A SCRIPTS_OF=([games]="pc.sh" [posters]="generate-poster-guided.sh" [ad-selfservice]="selfservice.sh")
 missing=""; stale=""; ph=""
 for e in "${!SCRIPTS_OF[@]}"; do
   own=$PKGS/$e/i18n/de.tsv
@@ -36,7 +36,7 @@ for own in "$PKGS"/*/i18n/de.tsv; do
     [ "$(grep -o '%[sd]' <<<"$k" | wc -l)" = "$(grep -o '%[sd]' <<<"$v" | wc -l)" ] || ph="$ph [$(basename "$(dirname "$(dirname "$own")")"): $k]"
   done < "$own"
 done
-check_eq "every text of games and posters is translated" "" "$(head -c 600 <<<"$missing")"
+check_eq "every text of games, posters and ad-selfservice is translated" "" "$(head -c 600 <<<"$missing")"
 check_eq "no translation of an extension is unused" "" "$(head -c 600 <<<"$stale")"
 check_eq "every translation keeps its placeholders" "" "$(head -c 600 <<<"$ph")"
 finish
