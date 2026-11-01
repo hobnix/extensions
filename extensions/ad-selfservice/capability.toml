@@ -1,0 +1,78 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "ad-selfservice"
+title = "Self-service password change for domain users"
+title_de = "Passwort selbst ändern für Domänenbenutzer"
+kind = "feature"
+requires = ["ad", "gateway"]
+provides = []
+needs = []
+# No NixOS module: a transient unit (systemd-run), started again at boot through `sys ext ad-selfservice boot`
+notes = "NOTES.md"
+# An extension package (docs/PLAN-extensions.md): hs ext ad-selfservice <command>, the rows are in commands.tsv.
+extension = true
+
+# What the web interface may ask for and start, only while the package is on (scripts/web-serve.py ext_load_web). Area: "ext/ad-selfservice".
+[[web.reads]]
+words = "status"
+kind = "tsv"
+ttl = 15
+
+[[web.reads]]
+words = "log"
+kind = "tsv"
+ttl = 30
+
+# start, stop and make private (making it public stays on the command line: it needs a full host name)
+[[web.changes]]
+patterns = ['^start$']
+
+[[web.changes]]
+patterns = ['^stop$']
+
+[[web.changes]]
+patterns = ['^expose$', '^private$']
+
+[web.page]
+title = "Password self-service"
+icon = "key"
+crumb = "Extensions"
+sub = "domain users change their own password"
+
+[[web.page.actions]]
+label = "Start"
+icon = "play"
+primary = true
+plan = ["ext/ad-selfservice", "start"]
+planTitle = "Start the password form"
+
+[[web.page.actions]]
+label = "Stop"
+icon = "stop"
+danger = true
+plan = ["ext/ad-selfservice", "stop"]
+planTitle = "Stop the password form"
+
+[[web.page.actions]]
+label = "Make private"
+icon = "lock"
+plan = ["ext/ad-selfservice", "expose", "private"]
+planTitle = "Make the password form private"
+
+[[web.page.blocks]]
+type = "kv"
+title = "Status"
+read = "status"
+pairs = true
+
+[[web.page.blocks]]
+type = "table"
+title = "Last tries"
+read = "log"
+key = "time"
+empty = "No tries recorded yet."
+columns = [
+  { key = "time", label = "Time", fmt = "datetime" },
+  { key = "ip", label = "IP", col = 1, kind = "mono" },
+  { key = "user", label = "User", col = 2 },
+  { key = "result", label = "Result", col = 3, kind = "dot", map = { ok = ["ok", "password changed"], bad = ["warn", "wrong user name or password"], policy = ["warn", "the new password was refused by the rules"], input = ["warn", "input or form error"], limited = ["bad", "too many tries"], plain-http = ["bad", "request without HTTPS"], unavailable = ["off", "the domain controller did not answer"] } },
+]

@@ -1,0 +1,8 @@
+# Manifest of a package (docs/PLAN-packages.md).
+name = "ad-selfservice"
+version = "0.1.0"
+kind = "extension"
+title = "Self-service password change for domain users"
+title_de = "Passwort selbst ändern für Domänenbenutzer"
+requires_core = ">=4"
+audience = "generic"
