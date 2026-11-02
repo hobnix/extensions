@@ -2,7 +2,7 @@
 # the package.toml of each folder (`python3 scripts/pkg.py repo-check .` in the core checks that).
 
 [package.ad-selfservice]
-version = "0.1.0"
+version = "0.2.0"
 kind = "extension"
 path = "extensions/ad-selfservice"
 title = "Self-service password change for domain users"
