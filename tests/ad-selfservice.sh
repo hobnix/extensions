@@ -287,6 +287,10 @@ limit_ip${T}5/900
 limit_global${T}30/60
 package${T}on" "$($S --status 2>/dev/null)"
 check_eq "--status without a readable DC says - for the threshold" "-" "$(HS_INCUS=false $S --status 2>/dev/null | awk -F"$T" '$1 == "ad_lockout_threshold" { print $2 }')"
+check_eq "--suggest without a proxy domain says -" "-" "$($S --suggest 2>/dev/null)"
+echo "example.org,example.net" > "$HS_SETTINGS_DIR/proxyDomains"
+check_eq "--suggest offers pw.<first proxy domain>" "pw.example.org" "$($S --suggest 2>/dev/null)"
+rm -f "$HS_SETTINGS_DIR/proxyDomains"
 printf 'listening on 127.0.0.1:8486\naudit\t2026-01-01T10:00:00Z\t10.0.0.5\talice\tok\naudit\t2026-01-01T10:01:00Z\t10.0.0.6\tbad user!\tbad\naudit\t2026-01-01T10:02:00Z\t10.0.0.7\tbob\tlimited\naudit\tshort\tline\naudit\t2026-01-01T10:03:00Z\t10.0.0.8\tcarol\tevil\n' > "$HS_ADSS_JOURNAL"
 check_eq "--log: newest first, bad names become -, short lines and unknown results are dropped" "2026-01-01T10:02:00Z${T}10.0.0.7${T}bob${T}limited
 2026-01-01T10:01:00Z${T}10.0.0.6${T}-${T}bad
