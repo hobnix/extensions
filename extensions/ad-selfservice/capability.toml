@@ -22,7 +22,12 @@ words = "log"
 kind = "tsv"
 ttl = 30
 
-# start, stop and make private (making it public stays on the command line: it needs a full host name)
+[[web.reads]]
+words = "suggest"
+kind = "tsv"
+ttl = 60
+
+# start, stop, make private and make public (the page asks for the full host name; the plan then asks to type it again)
 [[web.changes]]
 patterns = ['^start$']
 
@@ -31,6 +36,9 @@ patterns = ['^stop$']
 
 [[web.changes]]
 patterns = ['^expose$', '^private$']
+
+[[web.changes]]
+patterns = ['^expose$', '^public$', '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$']
 
 [web.page]
 title = "Password self-service"
@@ -57,6 +65,13 @@ label = "Make private"
 icon = "lock"
 plan = ["ext/ad-selfservice", "expose", "private"]
 planTitle = "Make the password form private"
+
+[[web.page.actions]]
+label = "Make public"
+icon = "globe"
+plan = ["ext/ad-selfservice", "expose", "public", "{input}"]
+planTitle = "Make the password form public at {input}"
+input = { label = "Public name of the form", placeholder = "pw.example.org", hint = "A full host name that points to this server, for example pw.example.org. The plan shows what changes and asks you to type the name again.", pattern = '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$', invalid = "This is not a full host name (for example pw.example.org).", suggest = { read = "suggest" } }
 
 [[web.page.blocks]]
 type = "kv"

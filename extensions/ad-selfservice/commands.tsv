@@ -9,6 +9,7 @@ user	ext ad-selfservice stop	@/selfservice.sh	stop	stop the password form (also 
 user	ext ad-selfservice expose	@/selfservice.sh	expose {rest}	who can reach the form: expose private | expose public <full name> (shows a plan, type the name)	wer das Formular erreicht: expose private | expose public <voller Name> (zeigt einen Plan, Namen eintippen)	topic:users,changes
 sys	sys ext ad-selfservice status	@/selfservice.sh	--status	key<TAB>value: running, wanted, port, dc, dc_address, exposure, fqdn, public_proxy, tls_route, ad_lockout_threshold, limits, package (- when empty)	-
 sys	sys ext ad-selfservice log	@/selfservice.sh	--log	time, ip, user, result (ok|bad|policy|limited|unavailable|input|plain-http), newest first, at most 200	-
+sys	sys ext ad-selfservice suggest	@/selfservice.sh	--suggest	the public name the page offers for the form: pw.<first reverse proxy domain>, - when none	-
 sys	sys ext ad-selfservice plan <action>	@/selfservice-change.sh	plan {1} {rest}	what start, stop or expose would do, as data (exit 0 ok, 1 refused)	-
 sys	sys ext ad-selfservice start <action>	@/selfservice-change.sh	start {1} {rest}	do it; expose public needs --confirm <full name>; answers status done	-
 sys	sys ext ad-selfservice boot	@/selfservice-change.sh	boot	at boot (core unit hs-ext-boot): start the unit again if it was started before; never asks	-

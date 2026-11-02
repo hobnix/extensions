@@ -20,7 +20,7 @@ sudo hs ext enable ad-selfservice
 ```
 
 ## Give the form its public name
-**This opens the form to the internet.** Anyone can try passwords on it. The form limits the tries, but a stranger can block the form for one account for 15 minutes. You type the name to confirm. Not tested on hardware yet.
+In the web interface: open the page Extensions, Password self-service, press **Make public**, check the name (it starts with `pw.` and your first reverse proxy domain when one is set) and type it again in the plan to confirm. Or on the command line. **This opens the form to the internet.** Anyone can try passwords on it. The form limits the tries, but a stranger can block the form for one account for 15 minutes. You type the name to confirm. Not tested on hardware yet.
 
 ```bash
 sudo hs ext ad-selfservice expose public pw.example.com

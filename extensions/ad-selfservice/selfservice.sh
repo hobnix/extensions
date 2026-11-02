@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # help: the password form for domain users (they change their own AD password over HTTPS): status, log, start, stop, expose
 # help.de: das Passwortformular für Domänenbenutzer (sie ändern ihr AD-Passwort selbst über HTTPS): Status, Protokoll, starten, stoppen, freigeben
-# args: status | log [--lines N] | start | stop | expose private [--yes] | expose public <full name> [--confirm <full name>] | --status | --log
+# args: status | log [--lines N] | start | stop | expose private [--yes] | expose public <full name> [--confirm <full name>] | --status | --log | --suggest
 # The service is a transient systemd unit (selfservice.py serve); the work of start, stop, expose and boot is selfservice-change.sh's
 # (plan, start); this script shows it to people (extensions/ad-selfservice/NOTES.md).
 #   --status   key TAB value (- when empty): running, wanted, port, dc, dc_address, exposure, fqdn, public_proxy, tls_route,
 #              ad_lockout_threshold, limit_account, limit_ip, limit_global, package
 #   --log      time TAB ip TAB user TAB result, newest first, at most 200 (hs sys ext ad-selfservice log)
+#   --suggest  one line: the public name the page offers (pw.<first proxy domain>), - when there is none (hs sys ext ad-selfservice suggest)
 # Test knobs: HS_STATE_DIR, HS_SERVICES_DIR, HS_SYSTEMCTL, HS_INCUS, HS_DC, HS_ADSS_JOURNAL (a file read instead of the journal), HS_ADSS_ROUTES,
 # HS_PYTHON; the rest are selfservice-change.sh's.
 # i18n: The form has expired. Reload the page and try again. | The request was not understood. | The service is busy. Try again in a moment. | Not found.
@@ -76,6 +77,10 @@ status_rows() {
     "$running" "$wanted" "$port" "${dc:--}" "$addr" "$exposure" "$fq" "$proxy" "$route" "${thr:--}"
   printf 'limit_account\t3/900\nlimit_ip\t5/900\nlimit_global\t30/60\npackage\t%s\n' "$pkg"
 }
+suggest_name() {   # one line for the page: pw.<first reverse proxy domain>, - when there is none (it only fills the field, the person confirms the name)
+  local d; d=$(setting_get proxyDomains 2>/dev/null | cut -d, -f1 || true); d=${d//[[:space:]]/}
+  if [ -n "$d" ]; then echo "pw.$d"; else echo "-"; fi
+}
 log_rows() {   # newest first, at most 200; the user cleaned up again, the result one of the known words
   { if [ -n "${HS_ADSS_JOURNAL:-}" ]; then cat "$HS_ADSS_JOURNAL" 2>/dev/null
     else journalctl -u "$unit" -o cat --no-pager 2>/dev/null; fi; } |
@@ -106,6 +111,7 @@ cmd=$1; shift
 case "$cmd" in
 --status) status_rows ;;
 --log) log_rows ;;
+--suggest) suggest_name ;;
 
 status)
   declare -A v=()
