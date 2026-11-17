@@ -7,3 +7,4 @@ title = "Game PCs (wake, list) and the Game streaming page"
 title_de = "Spiele-PCs (einschalten, Liste) und die Seite Game streaming"
 requires_core = ">=1"
 audience = "generic"
+permissions = ["web.read", "web.change", "fs.write:/var/lib/hs", "net:lan"]

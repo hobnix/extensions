@@ -7,3 +7,4 @@ title = "Passthrough domains (outside domains to reverse proxies on the LAN)"
 title_de = "Durchreich-Domains (fremde Domains an Reverse-Proxys im LAN)"
 requires_core = ">=1"
 audience = "generic"
+permissions = ["web.read", "web.change", "host:incus", "fs.read:/etc/hs", "fs.write:/var/lib/hs-gateway", "fs.write:/etc/hs/gateway-public"]
