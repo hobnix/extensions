@@ -7,3 +7,4 @@ title = "Posters drawn from the command line or the web interface"
 title_de = "Poster aus der Kommandozeile oder der Weboberfläche"
 requires_core = ">=1"
 audience = "generic"
+permissions = ["web.read", "web.change", "fs.write:/var/lib/hs/posters"]

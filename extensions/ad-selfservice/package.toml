@@ -6,3 +6,4 @@ title = "Self-service password change for domain users"
 title_de = "Passwort selbst ändern für Domänenbenutzer"
 requires_core = ">=4"
 audience = "generic"
+permissions = ["web.read", "web.change", "host:incus", "host:systemctl", "fs.read:/etc/hs", "fs.write:/var/lib/hs/ad-selfservice", "net:lan"]
