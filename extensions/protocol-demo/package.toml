@@ -1,0 +1,10 @@
+# Manifest of a package (docs/PLAN-packages.md). A demo of the command protocol v1 (docs/adr/0010-extension-command-protocol.md in hobnix/server).
+name = "protocol-demo"
+version = "0.1.0"
+kind = "extension"
+title = "Demo of the extension command protocol (read the code, copy it)"
+title_de = "Beispiel für das Befehlsprotokoll der Erweiterungen (zum Abschauen)"
+requires_core = ">=10"
+audience = "generic"
+protocol = [1]
+permissions = []
