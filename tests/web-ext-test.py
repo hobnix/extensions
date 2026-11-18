@@ -42,12 +42,17 @@ class RealPackages(unittest.TestCase):
         ws.ext_refresh(force=True)
         shutil.rmtree(self.tmp, ignore_errors=True)
 
+    @staticmethod
+    def spec(words):
+        """a read as the core registered it, without `role` (core 0.8 step 18 adds it; no role = admin, which these tests do not look at)"""
+        return {k: v for k, v in ws.READS[words].items() if k != "role"}
+
     def ok(self, area, args, stdin=None):
         return ws.validate_change({"area": area, "args": args, "stdin": stdin}) is not None
 
     def test_games(self):
         for words, ttl in ((("ext", "games", "list"), 30), (("ext", "games", "state"), 15)):
-            self.assertEqual(ws.READS[words], {"kind": "tsv", "ttl": ttl})
+            self.assertEqual(self.spec(words), {"kind": "tsv", "ttl": ttl})
         self.assertTrue(self.ok("ext/games", ["gaming-pc", "wake"]))
         self.assertTrue(self.ok("ext/games", ["gaming", "remove"]))
         self.assertTrue(self.ok("ext/games", ["gaming", "add", "--ip", "10.10.10.50", "--mac", "aa:bb:cc:dd:ee:ff"]))
@@ -56,7 +61,7 @@ class RealPackages(unittest.TestCase):
 
     def test_passthrough(self):
         for words, ttl in ((("ext", "passthrough", "list"), 30), (("ext", "passthrough", "state"), 15), (("ext", "passthrough", "status"), 30)):
-            self.assertEqual(ws.READS[words], {"kind": "tsv", "ttl": ttl})
+            self.assertEqual(self.spec(words), {"kind": "tsv", "ttl": ttl})
         a = "ext/passthrough"
         self.assertTrue(self.ok(a, ["example.com", "add", "--address", "192.168.1.20", "--proxy-protocol"]))
         self.assertTrue(self.ok(a, ["example.com", "add", "--address", "fd00::5", "--https-port", "8443", "--no-http"]))
@@ -72,7 +77,7 @@ class RealPackages(unittest.TestCase):
             self.assertFalse(self.ok(a, bad), bad)
 
     def test_posters(self):
-        self.assertEqual(ws.READS[("ext", "posters", "list")], {"kind": "tsv", "ttl": 5})
+        self.assertEqual(self.spec(("ext", "posters", "list")), {"kind": "tsv", "ttl": 5})
         self.assertTrue(self.ok("ext/posters", ["generate", "--eyebrow", "a", "--title", "b", "--color", "#12ab9f", "--seed", "42", "--case", "keep"]))
         self.assertTrue(self.ok("ext/posters", ["delete", "poster-dune-42.png"]))
         for bad in (["generate", "--out", "/etc"], ["delete", "../x.png"], ["generate", "--eyebrow", "a\nb", "--title", "b"]):
