@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The self-service password form of the extension ad-selfservice (standard library only).
 
-  selfservice.py serve --config <config.json>   the web form on 127.0.0.1:<port> (a transient systemd unit)
+  selfservice.py serve --config <config.json>   the web form on 127.0.0.1:<port> (run by service.py, the [service] of the package)
   selfservice.py map <rc>                       smbpasswd output on stdin -> category TAB message (pure, for the tests)
   selfservice.py limit-test                     lines "<time> check|attempt|fail|success|size [key...]" on stdin -> the limiter with a fake clock
   selfservice.py check-input                    {"user","old","new","repeat"} as JSON on stdin -> ok|input|bad TAB text (pure)
@@ -274,6 +274,7 @@ class Service:
         self.smb_conf = write_smb_conf(cfg, rt)
         self.slots = threading.BoundedSemaphore(int(cfg.get('max_parallel', 12)))
         self.audit_lock = threading.Lock()
+        self.audit_sink = None   # a service extension sends the line to the core (service.py); None = print it (selfservice.py serve)
 
     def t(self, s):
         return self.cat.get(s, s)
@@ -338,8 +339,12 @@ class Service:
     def audit(self, ip, user, result):
         u = user if user and re.fullmatch(r'[A-Za-z0-9._-]{1,64}', user) else '-'
         i = ip if ip and re.fullmatch(r'[0-9A-Fa-f:.]{2,45}', ip) else '-'
+        line = 'audit\t%s\t%s\t%s\t%s' % (datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), i, u, result)
         with self.audit_lock:
-            print('audit\t%s\t%s\t%s\t%s' % (datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), i, u, result), flush=True)
+            if self.audit_sink:
+                self.audit_sink(line)
+            else:
+                print(line, flush=True)
 
     def run_smbpasswd(self, user, old, new):
         env = {'PATH': self.cfg.get('path', '/run/current-system/sw/bin'), 'LANG': 'C.UTF-8'}
@@ -501,6 +506,15 @@ def watch(cfg):
             os._exit(0)
 
 
+def build_server(cfg, rt, audit_sink=None):
+    """(Service, server) for a config: the server listens on 127.0.0.1:<port> and is not serving yet (serve_forever is the caller's)."""
+    svc = Service(cfg, rt)
+    svc.audit_sink = audit_sink
+    srv = ThreadingHTTPServer(('127.0.0.1', int(cfg['port'])), make_handler(svc))
+    srv.daemon_threads = True
+    return svc, srv
+
+
 def cmd_serve(argv):
     if len(argv) != 2 or argv[0] != '--config':
         print('usage: selfservice.py serve --config <file>', file=sys.stderr)
@@ -511,9 +525,7 @@ def cmd_serve(argv):
     if not rt:
         print('no RUNTIME_DIRECTORY', file=sys.stderr)
         return 1
-    svc = Service(cfg, rt.split(':')[0])
-    srv = ThreadingHTTPServer(('127.0.0.1', int(cfg['port'])), make_handler(svc))
-    srv.daemon_threads = True
+    svc, srv = build_server(cfg, rt.split(':')[0])
     threading.Thread(target=watch, args=(cfg,), daemon=True).start()
     print('listening on 127.0.0.1:%s' % cfg['port'], flush=True)
     srv.serve_forever()

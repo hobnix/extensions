@@ -70,7 +70,7 @@ no TLS route to /password: the form is only served over HTTPS (reverseProxy = tr
 smbpasswd or python3 was not found (the Samba client tools)	smbpasswd oder python3 wurde nicht gefunden (die Samba-Client-Werkzeuge)
 start the password form	das Passwortformular starten
 stop the password form	das Passwortformular stoppen
-systemd-run could not start the unit hs-ad-selfservice (are you root?)	systemd-run konnte die Einheit hs-ad-selfservice nicht starten (bist du root?)
+the service ad-selfservice could not be started (is the package on and are you root? hs ext start ad-selfservice)	der Dienst ad-selfservice konnte nicht gestartet werden (ist das Paket an und bist du root? hs ext start ad-selfservice)
 the capability ad is off: there is no domain to change passwords in	die Fähigkeit ad ist aus: es gibt keine Domäne, in der Passwörter geändert werden
 the capability gateway is off: there is no proxy that gives the form its HTTPS address	die Fähigkeit gateway ist aus: es gibt keinen Proxy, der dem Formular seine HTTPS-Adresse gibt
 the form can only be public with reverseProxy = traefik-public (the proxy in a container cannot reach 127.0.0.1)	das Formular kann nur mit reverseProxy = traefik-public öffentlich sein (der Proxy im Container erreicht 127.0.0.1 nicht)

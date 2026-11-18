@@ -31,7 +31,7 @@ sudo hs services apply
 ```
 
 ## Start the form
-`start` refuses until the route over HTTPS exists. It starts again by itself after a reboot, until you stop it. Not tested on hardware yet.
+`start` refuses until the route over HTTPS exists. The form is a service of the core (`hs ext status` shows it): it starts again by itself after a reboot, until you stop it with `hs ext ad-selfservice stop`. Not tested on hardware yet.
 
 ```bash
 sudo hs ext ad-selfservice start

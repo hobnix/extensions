@@ -12,4 +12,3 @@ sys	sys ext ad-selfservice log	@/selfservice.sh	--log	time, ip, user, result (ok
 sys	sys ext ad-selfservice suggest	@/selfservice.sh	--suggest	the public name the page offers for the form: pw.<first reverse proxy domain>, - when none	-
 sys	sys ext ad-selfservice plan <action>	@/selfservice-change.sh	plan {1} {rest}	what start, stop or expose would do, as data (exit 0 ok, 1 refused)	-
 sys	sys ext ad-selfservice start <action>	@/selfservice-change.sh	start {1} {rest}	do it; expose public needs --confirm <full name>; answers status done	-
-sys	sys ext ad-selfservice boot	@/selfservice-change.sh	boot	at boot (core unit hs-ext-boot): start the unit again if it was started before; never asks	-
