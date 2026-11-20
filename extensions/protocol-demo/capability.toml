@@ -1,0 +1,9 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). No NixOS module: hs ext enable protocol-demo needs no rebuild.
+name = "protocol-demo"
+title = "Demo of the extension command protocol (read the code, copy it)"
+title_de = "Beispiel für das Befehlsprotokoll der Erweiterungen (zum Abschauen)"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+extension = true

@@ -1,0 +1,6 @@
+# Commands of the extension package "protocol-demo". Its package.toml says protocol = [1]: the core runs demo.py through the command protocol
+# and renders result.data (a list = TSV lines, an object = key TAB value, - for an empty cell); timeout:<seconds> is a flag of a row.
+# kind	path	script	args	help	help.de	flags
+user	ext protocol-demo hello	@/demo.py	-	say hello through the command protocol: hs ext protocol-demo hello [name]	einmal Hallo über das Befehlsprotokoll sagen: hs ext protocol-demo hello [Name]	topic:system,reads
+sys	sys ext protocol-demo list	@/demo.py	-	three demo rows: name, size, note (- = none)	drei Beispielzeilen: Name, Größe, Notiz (- = keine)	-
+sys	sys ext protocol-demo slow	@/demo.py	-	sleeps longer than its timeout of 2 seconds: the core stops it with exit 124	schläft länger als sein Zeitlimit von 2 Sekunden: der Kern bricht ab (Exit 124)	timeout:2

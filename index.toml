@@ -32,3 +32,11 @@ path = "extensions/posters"
 title = "Posters drawn from the command line or the web interface"
 requires_core = ">=1"
 audience = "generic"
+
+[package.protocol-demo]
+version = "0.1.0"
+kind = "extension"
+path = "extensions/protocol-demo"
+title = "Demo of the extension command protocol (read the code, copy it)"
+requires_core = ">=10"
+audience = "generic"
