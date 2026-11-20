@@ -1,0 +1,12 @@
+# Prepares the next release (hobnix/server#615): raises the versions from the `bump:` labels of the merged pull requests and opens a
+# pull request into develop. Run it by hand on `develop`. The steps are the shared workflow of hobnix/server (package-prepare-release.yml).
+# Not run yet.
+name: prepare-release
+on:
+  workflow_dispatch:
+jobs:
+  prepare:
+    uses: hobnix/server/.github/workflows/package-prepare-release.yml@develop
+    permissions:
+      contents: write
+      pull-requests: write
