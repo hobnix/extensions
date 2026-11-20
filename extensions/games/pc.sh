@@ -2,7 +2,7 @@
 # help: game PCs at home that stream with Sunshine: list, add, remove, wake (Wake-on-LAN)
 # help.de: Spiele-PCs zu Hause, die mit Sunshine streamen: anzeigen, hinzufügen, entfernen, aufwecken (Wake-on-LAN)
 # args: list | --list | --state | add <name> <mac> [<ip>] | remove <name> | wake <name> [--wait]
-# Remembers a PC (name, MAC, optional address) in /var/lib/hs/pcs. `wake` sends the magic packet from the server (the
+# Remembers a PC (name, MAC, optional address) in /var/lib/hs/games/pcs (an older /var/lib/hs/pcs is moved there at the first call). `wake` sends the magic packet from the server (the
 # server sits in the network the PC is in, a TV in another VLAN cannot wake it); with --wait it then waits (up to 3
 # minutes) until the PC's Sunshine answers on port 47989, which needs the address. The PC itself needs Wake-on-LAN
 # switched on in its BIOS and network card, and Sunshine installed.
@@ -11,14 +11,17 @@
 # --state (hs sys ext games state) = name TAB address TAB state, one row per PC, no header: state up when Sunshine answers on port 47989 at the address
 # (a 1 s try each), down when it does not (the PC is off or asleep, or Sunshine is not running: the two cannot be told apart), unknown when no
 # address is saved. Wakes nothing. HS_PC_PROBE (called with address and port, exit 0 = answers) stands in for the try.
-# HS_STATE_DIR points tests at another folder; HS_WOL_CMD (called with the MAC) stands in for the packet, HS_PC_WAIT_SECONDS
+# HS_STATE_DIR points tests at another folder (the file is <it>/games/pcs); HS_WOL_CMD (called with the MAC) stands in for the packet, HS_PC_WAIT_SECONDS
 # for the 180 s of --wait, HS_PC_PORT for the port 47989 it waits for.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 scripts=${HS_SCRIPTS:-$here/../../scripts}   # the core helpers; hs and hs-web set HS_SCRIPTS
 . "$scripts/lib/ui.sh"
-state=${HS_STATE_DIR:-/var/lib/hs}
+state=${HS_STATE_DIR:-/var/lib/hs}/games
 file=$state/pcs
+# Since core 0.8 (hobnix/server#947) the state lives in /var/lib/hs/games/ (the unit may write only its own folder): move the old file once
+legacy=${HS_STATE_DIR:-/var/lib/hs}/pcs
+if [ -f "$legacy" ] && [ ! -e "$file" ]; then mkdir -p "$(dirname "$file")" && mv "$legacy" "$file" || true; fi
 
 usage() {
   say "usage: hs ext games list"

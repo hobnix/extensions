@@ -11,8 +11,8 @@ PKGS=$HERE/extensions
 export HS_PACKAGES_DIR=$PKGS   # the core finds the extensions here (it has none of its own)
 export HS_PLAIN=1 HS_LANG=en
 unset HS_CALLER HS_GUIDED_TTY
-export HS_STATE_DIR=$WORK/state; mkdir -p "$HS_STATE_DIR"
-printf 'gaming\taa:bb:cc:dd:ee:ff\t10.10.10.50\nlaptop\t11:22:33:44:55:66\t\n' > "$HS_STATE_DIR/pcs"
+export HS_STATE_DIR=$WORK/state; mkdir -p "$HS_STATE_DIR/games"
+printf 'gaming\taa:bb:cc:dd:ee:ff\t10.10.10.50\nlaptop\t11:22:33:44:55:66\t\n' > "$HS_STATE_DIR/games/pcs"
 printf '#!/usr/bin/env bash\necho "$1" >> "%s/wol.log"\n' "$WORK" > "$WORK/wol-cmd"; chmod +x "$WORK/wol-cmd"
 export HS_WOL_CMD=$WORK/wol-cmd
 run() { rc=0; out=$(timeout 20 bash "$PKGS/games/pc-change.sh" "$@" </dev/null 2>/dev/null) || rc=$?; }
@@ -52,7 +52,7 @@ run plan newpc add --mac AA-BB-CC-00-11-22 --ip 10.10.10.60
 check_eq "add plan: exit 0" 0 "$rc"
 has '^heading	save the game PC newpc$' && has 'aa:bb:cc:00:11:22 and the address 10.10.10.60' && has '^command	bash .*pc.sh add newpc aa:bb:cc:00:11:22 10.10.10.60$' && pass "plan names the MAC (lower case) and the address" || fail "add plan: $out"
 has '^warn' && fail "a new name has no replace warning" || pass "no replace warning for a new name"
-check_eq "plan saves nothing" 2 "$(wc -l < "$HS_STATE_DIR/pcs" | tr -d ' ')"
+check_eq "plan saves nothing" 2 "$(wc -l < "$HS_STATE_DIR/games/pcs" | tr -d ' ')"
 run plan newpc add --mac aa:bb:cc:00:11:22
 has '^note	Without an address' && pass "no address: a note" || fail "no-ip note: $out"
 run plan gaming add --mac 11:11:11:11:11:11
@@ -63,9 +63,9 @@ for bad in "--mac nonsense" "--mac aa:bb:cc:00:11:22 --ip 10.10.10" "--mac aa:bb
 done
 run start newpc add --mac AA:BB:CC:00:11:22 --ip 10.10.10.60
 check_eq "start add: exit 0" 0 "$rc"
-check_eq "the PC is saved with the MAC in lower case" "$(printf 'newpc	aa:bb:cc:00:11:22	10.10.10.60')" "$(grep '^newpc' "$HS_STATE_DIR/pcs")"
+check_eq "the PC is saved with the MAC in lower case" "$(printf 'newpc	aa:bb:cc:00:11:22	10.10.10.60')" "$(grep '^newpc' "$HS_STATE_DIR/games/pcs")"
 run start newpc add --mac AA:BB:CC:00:11:22
-check_eq "add replaces, not duplicates" 1 "$(grep -c '^newpc' "$HS_STATE_DIR/pcs" | tr -d ' ')"
+check_eq "add replaces, not duplicates" 1 "$(grep -c '^newpc' "$HS_STATE_DIR/games/pcs" | tr -d ' ')"
 run start newpc add
 check_eq "start without a MAC: needs (nothing saved)" 2 "$rc"
 
@@ -80,7 +80,7 @@ run plan newpc remove --mac x
 check_eq "remove with extra arguments: refused" 1 "$rc"
 run start newpc remove
 check_eq "start remove: exit 0" 0 "$rc"
-check_eq "it is gone" 0 "$(grep -c '^newpc' "$HS_STATE_DIR/pcs" | tr -d ' ')"
-check_eq "the others stay" 2 "$(wc -l < "$HS_STATE_DIR/pcs" | tr -d ' ')"
+check_eq "it is gone" 0 "$(grep -c '^newpc' "$HS_STATE_DIR/games/pcs" | tr -d ' ')"
+check_eq "the others stay" 2 "$(wc -l < "$HS_STATE_DIR/games/pcs" | tr -d ' ')"
 
 finish

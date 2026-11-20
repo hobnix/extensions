@@ -10,7 +10,7 @@ requires_core = ">=4"
 audience = "generic"
 
 [package.games]
-version = "1.0.0"
+version = "1.0.1"
 kind = "extension"
 path = "extensions/games"
 title = "Game PCs (wake, list) and the Game streaming page"

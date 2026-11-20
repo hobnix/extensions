@@ -37,6 +37,16 @@ check "--wait without an address refused" bash -c "! $P wake nomac --wait 2>/dev
 $P add dead aa:bb:cc:dd:ee:01 127.0.0.1 >/dev/null
 check "--wait gives up when nothing answers" bash -c "! HS_PC_PORT=1 HS_PC_WAIT_SECONDS=2 $P wake dead --wait 2>/dev/null"
 $P add gaming aa:bb:cc:dd:ee:02 >/dev/null
-check_eq "add again replaces the entry" "1" "$(grep -c '^gaming' "$HS_STATE_DIR/pcs")"
+check_eq "add again replaces the entry" "1" "$(grep -c '^gaming' "$HS_STATE_DIR/games/pcs")"
 check_out "remove" "Removed 'gaming'" $P remove gaming
+echo "-- an older /var/lib/hs/pcs is moved into games/ once (hobnix/server#947)"
+rm -rf "$HS_STATE_DIR"; mkdir -p "$HS_STATE_DIR"
+printf 'old	aa:bb:cc:dd:ee:09	10.0.0.9
+' > "$HS_STATE_DIR/pcs"
+check_out "the old entry is listed after the move" "old" $P list
+check_eq "the old file is gone, the new one holds it" "no 1" "$([ -e "$HS_STATE_DIR/pcs" ] && echo yes || echo no) $(grep -c '^old' "$HS_STATE_DIR/games/pcs")"
+printf 'stale	x	
+' > "$HS_STATE_DIR/pcs"
+$P list >/dev/null 2>&1 || true
+check_eq "a second old file never overwrites the new one" "0" "$(grep -c '^stale' "$HS_STATE_DIR/games/pcs")"
 finish
