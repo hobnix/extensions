@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # The extension ad-selfservice (extensions/ad-selfservice): the registry rows, the smbpasswd mapping, the limiter, the input checks, the web form
-# served in-process with a fake smbpasswd, the --status/--log shapes, plan/start/stop/expose and the boot hook.
+# served in-process with a fake smbpasswd, the --status/--log shapes, plan/start/stop/expose, and the [service] (service.py under the core's reference
+# supervisor: not started, no public name, serving, new config, audit lines as log messages, shutdown).
 # No root, no network, no Samba: every place it looks at is a knob. The daemon test binds a free port on 127.0.0.1 (needs Linux or WSL).
 # The core checkout (CI puts it in ./core; HS_CORE names another). The packages under test are the ones of THIS repository.
 HERE=$(cd "$(dirname "$0")/.." && pwd)
@@ -10,6 +11,7 @@ CORE=${HS_CORE:-$HERE/core}
 . "$CORE/tests/lib.sh"
 PKGS=$HERE/extensions
 export HS_PACKAGES_DIR=$PKGS   # the core finds the extensions here (it has none of its own)
+mkdir -p "$WORK/tree"; ln -sfn "$PKGS" "$WORK/tree/capabilities"; export HS_PACKAGES_ROOT=$WORK/tree   # pkg.py (permissions of the package) looks here
 export HS_LANG=en HS_PLAIN=1 HS_CALLER=test HS_PYTHON=python3
 unset HS_GUIDED_TTY
 export MSYS2_ARG_CONV_EXCL='*'
@@ -17,7 +19,8 @@ P=$PKGS/ad-selfservice
 export HS_SCRIPTS=$SCRIPTS
 export HS_CAPABILITIES_FILE=$WORK/caps HS_STATE_DIR=$WORK/state HS_SETTINGS_DIR=$WORK/settings HS_MACHINE_FILE=$WORK/machine.toml
 export HS_SERVICES_DIR=$WORK/services.d HS_DC=dc1
-export HS_SYSTEMCTL=$WORK/fake/systemctl HS_SYSTEMD_RUN=$WORK/fake/systemd-run HS_INCUS=$WORK/fake/incus HS_ADSS_SMBPASSWD=$WORK/fake/smbpasswd
+export HS_CONFINE_DIR=$WORK/confine
+export HS_SYSTEMCTL=$WORK/fake/systemctl HS_INCUS=$WORK/fake/incus HS_ADSS_SMBPASSWD=$WORK/fake/smbpasswd
 export HS_ADSS_ROUTES=$WORK/routes HS_ADSS_JOURNAL=$WORK/journal HS_ADSS_TUNNEL_FROM=$WORK/tunnel-from
 mkdir -p "$WORK/fake" "$HS_STATE_DIR" "$HS_SETTINGS_DIR" "$HS_SERVICES_DIR"
 T=$'\t'
@@ -29,19 +32,13 @@ printf 'ad\ngateway\nad-selfservice\n' > "$HS_CAPABILITIES_FILE"
 printf 'hostName = "homeserver"\nadDomain = { realm = "AD.HOME.TEST", workgroup = "EX" }\n' > "$HS_MACHINE_FILE"
 printf '10.99.0.2/32\n' > "$HS_ADSS_TUNNEL_FROM"
 : > "$HS_ADSS_ROUTES"
-echo inactive > "$WORK/unit-state"
-# the fakes: systemctl (is-active reads unit-state, stop writes it), systemd-run (records its argv, the unit is active then), incus (the DC)
+echo inactive > "$WORK/unit-state"; echo inactive > "$WORK/old-state"
+# the fakes: systemctl (the unit of the extension service: unit-state; the old transient unit of 0.2: old-state), incus (the DC)
 cat > "$WORK/fake/systemctl" <<EOF
 #!/bin/bash
 echo "\$@" >> "$WORK/systemctl.log"
-case "\$1" in is-active) cat "$WORK/unit-state" ;; stop) echo inactive > "$WORK/unit-state" ;; esac
-exit 0
-EOF
-cat > "$WORK/fake/systemd-run" <<EOF
-#!/bin/bash
-printf '%s\n' "\$@" > "$WORK/systemd-run.argv"
-echo x >> "$WORK/systemd-run.count"
-echo active > "$WORK/unit-state"
+f="$WORK/unit-state"; for a in "\$@"; do [ "\$a" != hs-ad-selfservice ] || f="$WORK/old-state"; done
+case "\$1" in is-active) cat "\$f" ;; stop) echo inactive > "\$f" ;; start) echo active > "\$f" ;; esac
 exit 0
 EOF
 cat > "$WORK/fake/incus" <<'EOF'
@@ -70,9 +67,10 @@ count() { wc -l < "$1" 2>/dev/null | tr -d ' ' || echo 0; }
 echo "-- registry rows"
 . "$SCRIPTS/lib/registry-load.sh"
 for w in "ext ad-selfservice status" "ext ad-selfservice log" "ext ad-selfservice start" "ext ad-selfservice stop" "ext ad-selfservice expose" \
-         "sys ext ad-selfservice status" "sys ext ad-selfservice log" "sys ext ad-selfservice plan <action>" "sys ext ad-selfservice start <action>" "sys ext ad-selfservice boot"; do
+         "sys ext ad-selfservice status" "sys ext ad-selfservice log" "sys ext ad-selfservice plan <action>" "sys ext ad-selfservice start <action>"; do
   check_out "row: $w" "${T}$w${T}" registry_rows
 done
+check_eq "no boot row: the core starts the service after a reboot" "0" "$(registry_rows | grep -c 'ad-selfservice boot')"
 check_eq "no row of the package is refused" "" "$(registry_refused ad-selfservice | paste -sd, -)"
 printf 'ad\ngateway\n' > "$HS_CAPABILITIES_FILE"
 check_eq "no row while the package is off" "0" "$(registry_rows | grep -c 'ad-selfservice')"
@@ -310,7 +308,7 @@ echo traefik-public > "$HS_SETTINGS_DIR/reverseProxy"
 run $C plan start; if [ "$rc" = 1 ] && has "^reason${T}no TLS route"; then pass "no ok row in the routes: refused"; else fail "no row: rc=$rc $out"; fi
 printf 'ok%spw.example.org%s/%shttp://127.0.0.1:8486%sad-selfservice%s\n' "$T" "$T" "$T" "$T" "$T" > "$HS_ADSS_ROUTES"
 run $C plan start; if [ "$rc" = 1 ]; then pass "an ok row for / only is not a /password route"; else fail "wrong path: rc=$rc $out"; fi
-run $C start start; if [ "$rc" = 1 ] && [ ! -f "$HS_STATE_DIR/ad-selfservice/wanted" ] && [ ! -f "$WORK/systemd-run.argv" ]; then pass "start refused: no unit, no wanted marker"; else fail "start without route: rc=$rc $out"; fi
+run $C start start; if [ "$rc" = 1 ] && ! grep -q '^start ' "$WORK/systemctl.log"; then pass "start refused: no service started"; else fail "start without route: rc=$rc $out"; fi
 check_eq "start declared the descriptor first (so the route can be made)" "yes" "$([ -f "$HS_SERVICES_DIR/ad-selfservice.toml" ] && grep -q 'port = 8486' "$HS_SERVICES_DIR/ad-selfservice.toml" && echo yes)"
 printf 'ok%spw.example.org%s/password%shttp://127.0.0.1:8486%sad-selfservice%s\n' "$T" "$T" "$T" "$T" "$T" > "$HS_ADSS_ROUTES"
 run $C plan start; if [ "$rc" = 0 ] && has "^status${T}ok" && has "^long${T}no"; then pass "plan start with the route: ok"; else fail "plan start: rc=$rc $out"; fi
@@ -320,28 +318,35 @@ printf 'ad\ngateway\n' > "$HS_CAPABILITIES_FILE"
 run $C plan start; if [ "$rc" = 1 ] && has "ad-selfservice is off"; then pass "package off: refused"; else fail "package off: rc=$rc $out"; fi
 printf 'ad\ngateway\nad-selfservice\n' > "$HS_CAPABILITIES_FILE"
 run env HS_ADSS_SMBPASSWD=/nonexistent/smbpasswd PATH=/usr/bin:/bin $C plan start; if [ "$rc" = 1 ] && has "smbpasswd"; then pass "no smbpasswd: refused"; else fail "no smbpasswd: rc=$rc $out"; fi
+echo active > "$WORK/old-state"
 run $C start start
 if [ "$rc" = 0 ] && has "^status${T}done"; then pass "start with the route: done"; else fail "start: rc=$rc $out"; fi
-argv=$(cat "$WORK/systemd-run.argv" 2>/dev/null)
-check_out "systemd-run has DynamicUser=yes" "^DynamicUser=yes$" echo "$argv"
-check_out "systemd-run has IPAddressAllow with the DC" "^IPAddressAllow=127.0.0.1 ::1 10.10.95.5$" echo "$argv"
-check_out "systemd-run runs selfservice.py serve --config" "selfservice.py" echo "$argv"
-if grep -Eqi 'pass|secret|token|oldpw' <<<"$argv"; then fail "no password or secret in the systemd-run argv: $argv"; else pass "no password or secret in the systemd-run argv"; fi
-check_eq "wanted is written (0644)" "yes" "$([ -f "$HS_STATE_DIR/ad-selfservice/wanted" ] && echo yes)"
+check_out "start starts the extension service (hs ext start)" "^start hs-ext-svc@ad-selfservice.service" cat "$WORK/systemctl.log"
+check_eq "the service is active" "active" "$(cat "$WORK/unit-state")"
+check_eq "the old transient unit of 0.2 is stopped (it would hold the port)" "inactive" "$(cat "$WORK/old-state")"
+dropin=$HS_CONFINE_DIR/hs-ext-svc@ad-selfservice.service.d/10-confine.conf
+check_out "the confinement comes from the permissions: only the bridge state and the package state folder are writable" "^ReadWritePaths=-/var/lib/hs/ext-svc -/var/lib/hs/ad-selfservice$" cat "$dropin"
+check_out "...and /etc/hs and the descriptor are declared as read" "^ReadOnlyPaths=-/etc/hs -/var/lib/hs/services.d$" cat "$dropin"
+check_out "...with no capabilities and no new privileges" "^NoNewPrivileges=yes$" cat "$dropin"
+check_eq "start is not marked stopped, so --status says wanted" "yes" "$($S --status 2>/dev/null | awk -F"$T" '$1 == "wanted" { print $2 }')"
 check_out "config.json: DC address, port, tunnel source trusted, realm" '"dc_address": "10.10.95.5"' cat "$HS_STATE_DIR/ad-selfservice/config.json"
 check_out "config.json trusts the tunnel source" '10.99.0.2/32' cat "$HS_STATE_DIR/ad-selfservice/config.json"
 if grep -Eqi 'password|secret' "$HS_STATE_DIR/ad-selfservice/config.json"; then fail "config.json holds no secret"; else pass "config.json holds no secret"; fi
 echo traefik-public > "$HS_SETTINGS_DIR/reverseProxy"
-n1=$(count "$WORK/systemd-run.count")
-run $C start start; check_eq "start again while running stops and runs it again (the new DC address applies)" "$((n1 + 1))" "$(count "$WORK/systemd-run.count")"
-check_out "...after a stop" "^stop hs-ad-selfservice" cat "$WORK/systemctl.log"
+run $C start start; check_eq "start again while running: done (the service reads the new config.json by itself)" "0" "$rc"
+check_out "...and stopped the old transient unit before" "^stop hs-ad-selfservice" cat "$WORK/systemctl.log"
 
 echo "-- hs ext ad-selfservice status/stop through hs"
 check_out "status shows running and the route" "Running" $HSB ext ad-selfservice status
 check_eq "--status after start: running, wanted, tls_route" "yes yes yes" "$($S --status 2>/dev/null | awk -F"$T" '$1 == "running" || $1 == "wanted" || $1 == "tls_route" { print $2 }' | paste -sd' ' -)"
 $HSB ext ad-selfservice stop >/dev/null 2>&1
-check_eq "stop removes wanted and stops the unit" "no" "$([ -f "$HS_STATE_DIR/ad-selfservice/wanted" ] && echo yes || echo no)"
+check_eq "stop: not wanted any more (it stays stopped after a reboot)" "no" "$($S --status 2>/dev/null | awk -F"$T" '$1 == "wanted" { print $2 }')"
 check_eq "stop: the unit is inactive" "inactive" "$(cat "$WORK/unit-state")"
+check_eq "stop: hs ext stop left its marker" "yes" "$([ -e "$HS_STATE_DIR/ext-svc/ad-selfservice.stopped" ] && echo yes)"
+$HSB ext start ad-selfservice >/dev/null 2>&1
+check_eq "hs ext start brings it back and clears the marker" "active yes" "$(cat "$WORK/unit-state") $([ -e "$HS_STATE_DIR/ext-svc/ad-selfservice.stopped" ] && echo no || echo yes)"
+check_out "hs ext status shows the service" "ad-selfservice" $HSB ext status
+check_out "hs sys ext status lists the service state" "ad-selfservice" $HSB sys ext status
 
 echo "-- expose"
 echo zoraxy > "$HS_SETTINGS_DIR/reverseProxy"
@@ -357,23 +362,62 @@ d=$HS_SERVICES_DIR/ad-selfservice.toml
 if [ "$rc" = 0 ] && grep -q '^exposure = "public-ok"' "$d" && grep -q 'public_paths = \["/password"\]' "$d" && grep -q 'fqdn = \["pw.example.org"\]' "$d"; then pass "with --confirm the descriptor is public-ok, public_paths /password, the name"; else fail "expose public: rc=$rc $out $(cat "$d" 2>/dev/null | tr '\n' ' ')"; fi
 check_out "hs ext ad-selfservice expose public --confirm (through hs)" "hs services apply" $HSB ext ad-selfservice expose public pw.example.org --confirm pw.example.org
 check_out "expose public without a terminal and without --confirm fails" "Nobody to ask" bash -c "$HSB ext ad-selfservice expose public pw.example.org 2>&1 </dev/null"
-echo active > "$WORK/unit-state"; : > "$HS_STATE_DIR/ad-selfservice/wanted"
+echo active > "$WORK/unit-state"
 run $C plan expose private; if [ "$rc" = 0 ] && has "^warn${T}.*stopped"; then pass "plan expose private while running warns that it is stopped"; else fail "plan private: rc=$rc $out"; fi
 run $C start expose private
 if [ "$rc" = 0 ] && grep -q '^exposure = "private-ok"' "$d"; then pass "expose private: the descriptor is private-ok again"; else fail "expose private: rc=$rc $out"; fi
-check_eq "expose private while running stops the unit and removes wanted" "inactive no" "$(cat "$WORK/unit-state") $([ -f "$HS_STATE_DIR/ad-selfservice/wanted" ] && echo yes || echo no)"
+check_eq "expose private while running stops the service and keeps it stopped" "inactive no" "$(cat "$WORK/unit-state") $($S --status 2>/dev/null | awk -F"$T" '$1 == "wanted" { print $2 }')"
 
-echo "-- boot"
-rm -f "$WORK/systemd-run.count" "$HS_STATE_DIR/ad-selfservice/wanted"; echo inactive > "$WORK/unit-state"
-run $C boot; if [ "$rc" = 0 ] && has "^status${T}skipped" && [ ! -f "$WORK/systemd-run.count" ]; then pass "boot without wanted: skipped, the unit is not run"; else fail "boot no wanted: rc=$rc $out"; fi
-: > "$HS_STATE_DIR/ad-selfservice/wanted"
-run $C boot; if [ "$rc" = 0 ] && has "^status${T}started" && [ "$(count "$WORK/systemd-run.count")" = 1 ]; then pass "boot with wanted: started, the unit is run"; else fail "boot wanted: rc=$rc $out"; fi
-check_out "boot runs from config.json (the DC address)" "^IPAddressAllow=127.0.0.1 ::1 10.10.95.5$" cat "$WORK/systemd-run.argv"
-rm -f "$WORK/systemd-run.count"; printf 'ad\ngateway\n' > "$HS_CAPABILITIES_FILE"
-run $C boot; if [ "$rc" = 0 ] && has "^status${T}skipped" && [ ! -f "$WORK/systemd-run.count" ]; then pass "boot with the package off: skipped"; else fail "boot package off: rc=$rc $out"; fi
-printf 'ad\ngateway\nad-selfservice\n' > "$HS_CAPABILITIES_FILE"
-mv "$HS_STATE_DIR/ad-selfservice/config.json" "$WORK/config.json.bak"
-run $C boot; if [ "$rc" = 0 ] && has "^status${T}refused"; then pass "boot without config.json: refused, exit 0"; else fail "boot no config: rc=$rc $out"; fi
-mv "$WORK/config.json.bak" "$HS_STATE_DIR/ad-selfservice/config.json"
-check_eq "boot through hs sys: exit 0 and a status line" "yes" "$($HSB sys ext ad-selfservice boot </dev/null 2>/dev/null | grep -q "^status${T}" && echo yes)"
+echo "-- the [service] (service.py under the core's reference supervisor)"
+SVC_STATE=$WORK/svc-state; SVC_SERVICES=$WORK/svc-services.d; SVCOUT=$WORK/svc.out
+mkdir -p "$SVC_STATE/ad-selfservice" "$SVC_SERVICES"
+SVCPORT=$(python3 -I -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+svc_up() {   # svc_up <seconds>: the supervisor runs service.py for that long, its output (states, health, log messages) goes to $SVCOUT
+  : > "$SVCOUT"
+  HS_STATE_DIR=$SVC_STATE HS_SERVICES_DIR=$SVC_SERVICES HS_ADSS_POLL=0.2 python3 -I "$SCRIPTS/lib/ext_service.py" run --name ad-selfservice \
+    --run-for "$1" --grace 2 --health-interval 1 -- python3 "$P/service.py" > "$SVCOUT" 2>&1 &
+  svc_pid=$!
+}
+svc_wait() {   # svc_wait <pattern> [seconds]: wait until the output has the pattern
+  local i; for ((i = 0; i < ${2:-100}; i++)); do grep -q -- "$1" "$SVCOUT" && return 0; sleep 0.1; done; return 1
+}
+svc_get() {   # a plain GET to the daemon, as a proxy without HTTPS would send it: prints the status
+  python3 -I -c '
+import http.client, sys
+c = http.client.HTTPConnection("127.0.0.1", int(sys.argv[1]), timeout=10); c.request("GET", "/password", headers={"Host": "pw.example.org"}); print(c.getresponse().status)' "$1" 2>&1
+}
+svc_up 40
+if svc_wait '"state":"running"'; then pass "the service says ready: running"; else fail "no running state: $(cat "$SVCOUT")"; fi
+if svc_wait 'not started: run hs ext ad-selfservice start'; then pass "no config.json: degraded with the reason, nothing listens"; else fail "no config reason: $(cat "$SVCOUT")"; fi
+python3 -I "$P/selfservice.py" make-config "$SVC_STATE/ad-selfservice/config.json" "port=$SVCPORT" dc_address=10.10.95.5 realm=AD.HOME.TEST workgroup=EX \
+  "smbpasswd=$WORK/fake/smbpasswd" i18n=x
+sleep 1.5
+check_eq "config.json but no public name: nothing listens" "closed" "$(python3 -I -c '
+import socket, sys
+try: socket.create_connection(("127.0.0.1", int(sys.argv[1])), 1).close(); print("open")
+except OSError: print("closed")' "$SVCPORT")"
+printf 'exposure = "public-ok"\nfqdn = ["pw.example.org"]\n' > "$SVC_SERVICES/ad-selfservice.toml"
+if svc_wait "serving the form on 127.0.0.1:$SVCPORT"; then pass "config.json and a public name: the form is served (health ok)"; else fail "not serving: $(cat "$SVCOUT")"; fi
+check_eq "a request without HTTPS from the proxy is refused (403)" "403" "$(svc_get "$SVCPORT")"
+if svc_wait '"type":"log".*audit.*plain-http'; then pass "the audit line goes to the core as a log message"; else fail "no audit log message: $(cat "$SVCOUT")"; fi
+SVCPORT2=$(python3 -I -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])')
+python3 -I "$P/selfservice.py" make-config "$SVC_STATE/ad-selfservice/config.json" "port=$SVCPORT2" dc_address=10.10.95.6 realm=AD.HOME.TEST workgroup=EX \
+  "smbpasswd=$WORK/fake/smbpasswd"
+up=no; for _i in $(seq 60); do [ "$(svc_get "$SVCPORT2")" = 403 ] && { up=yes; break; }; sleep 0.2; done
+check_eq "a new config.json moves the form to the new port without a restart" "yes" "$up"
+check_eq "...and the old port is closed" "closed" "$(python3 -I -c '
+import socket, sys
+try: socket.create_connection(("127.0.0.1", int(sys.argv[1])), 2).close(); print("open")
+except OSError: print("closed")' "$SVCPORT")"
+if grep -Eqi 'oldpw|newpw|"password' "$SVCOUT"; then fail "a password in the service output"; else pass "no password in the service output"; fi
+rm -f "$SVC_SERVICES/ad-selfservice.toml"
+for _i in $(seq 50); do python3 -I -c 'import socket,sys; socket.create_connection(("127.0.0.1", int(sys.argv[1])), 1).close()' "$SVCPORT2" 2>/dev/null || break; sleep 0.2; done
+check_eq "without the public name the form stops listening" "closed" "$(python3 -I -c '
+import socket, sys
+try: socket.create_connection(("127.0.0.1", int(sys.argv[1])), 2).close(); print("open")
+except OSError: print("closed")' "$SVCPORT2")"
+kill "$svc_pid" 2>/dev/null; wait "$svc_pid" 2>/dev/null || true
+check_out "the supervisor stopped it with shutdown: final state stopped" '"state":"stopped"' tail -n1 "$SVCOUT"
+rc=0; printf 'not json\n' | python3 -I "$P/service.py" >/dev/null 2>&1 || rc=$?
+check_eq "service.py without an init message exits 1" "1" "$rc"
 finish

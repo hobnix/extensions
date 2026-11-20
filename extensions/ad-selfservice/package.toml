@@ -1,9 +1,26 @@
 # Manifest of a package (docs/PLAN-packages.md).
 name = "ad-selfservice"
-version = "0.2.0"
+version = "0.3.0"
 kind = "extension"
 title = "Self-service password change for domain users"
 title_de = "Passwort selbst ändern für Domänenbenutzer"
-requires_core = ">=4"
+requires_core = ">=10"
 audience = "generic"
-permissions = ["web.read", "web.change", "host:incus", "host:systemctl", "fs.read:/etc/hs", "fs.write:/var/lib/hs/ad-selfservice", "net:lan"]
+
+# What the package says it needs (ADR 0014). The commands run as root and say so here (they write config.json and read the tunnel list in
+# /etc/hs). The service is confined from the same list, so it may also write /var/lib/hs/ad-selfservice (it only reads it); it has no other
+# writable path but the core's state folder and its private /tmp.
+permissions = [
+  "web.read", "web.change",
+  "fs.read:/etc/hs",                          # gateway-tunnel-from: the proxies the form trusts (read by `start`)
+  "fs.read:/var/lib/hs/services.d",           # the web service descriptor: the public name that gates serving the form
+  "fs.write:/var/lib/hs/ad-selfservice",      # config.json, written by `start`, read by the service
+  "net:lan",                                  # outgoing: the domain controller (smbpasswd); the form itself listens on 127.0.0.1 only
+  "host:smbpasswd", "host:incus", "host:systemctl", "host:journalctl", "host:hs",
+]
+
+# The form is one process that speaks the service protocol (service.py). It subscribes to no event and emits none.
+[service]
+exec = "@/service.py"
+subscribe = []
+health_interval = 30

@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
-# help: start, stop or expose the password form without asking anything: what would happen (plan), then do it (start); boot brings it back
-# help.de: das Passwortformular starten, stoppen oder freigeben, ohne etwas zu fragen: was passieren würde (plan), dann ausführen (start); boot holt es nach einem Neustart zurück
-# args: plan|start start | plan|start stop | plan|start expose private | plan|start expose public <full name> [--confirm <full name>] | boot | route
-# System command (hs sys ext ad-selfservice plan|start|boot): for the interface, tests and the core's boot unit. It never asks and prints
+# help: start, stop or expose the password form without asking anything: what would happen (plan), then do it (start)
+# help.de: das Passwortformular starten, stoppen oder freigeben, ohne etwas zu fragen: was passieren würde (plan), dann ausführen (start)
+# args: plan|start start | plan|start stop | plan|start expose private | plan|start expose public <full name> [--confirm <full name>] | route
+# System command (hs sys ext ad-selfservice plan|start): for the interface and tests. It never asks and prints
 # key<TAB>value lines like passthrough-change.sh.
 #   start   refuse unless the package, ad and gateway are on, smbpasswd and python3 are found, the DC has an address and a TLS route to
-#           /password exists (tls_route below). Writes config.json (no secret), declares the service, then runs the transient unit
-#           hs-ad-selfservice (systemd-run) and writes the marker `wanted`. A running unit is stopped first, so the DC address in its
-#           IPAddressAllow is the new one.
-#   stop    stop the unit, remove `wanted` (the service descriptor stays).
-#   expose  private: the service is not public any more and, because no TLS route is left, the unit is stopped. public <full name>:
+#           /password exists (tls_route below). Writes config.json (no secret), declares the web service, stops the old transient unit
+#           hs-ad-selfservice of version 0.2 if it still runs, then starts the extension service (`hs ext start`: the core's unit
+#           hs-ext-svc@ad-selfservice, confined from the package's permissions). A running service reads the new config.json by itself
+#           (the new DC address) and the core starts it again after a reboot until `stop`.
+#   stop    stop the service (`hs ext stop`: it stays stopped after a reboot; the web service descriptor stays).
+#   expose  private: the service is not public any more and, because no TLS route is left, the extension service is stopped. public <full name>:
 #           only with reverseProxy = traefik-public; start needs --confirm <full name> (the web interface appends it). Then: hs services apply.
-#   boot    the core's hs-ext-boot: start the unit again from config.json when `wanted` exists. Never asks, exit 0 always.
 #   route   internal: prints yes|no, is there a TLS route (used by selfservice.sh).
 # plan: exit 0 = allowed, 1 = refused. Output: status ok|refused, reason<TAB><text>, fix<TAB><command> (refused), heading|step|note|warn|danger<TAB><line>,
 #   confirm_name<TAB><full name> (expose public), long<TAB>no. start: the same checks, then status<TAB>done.
-#   boot: status<TAB>started|skipped|refused and reason<TAB><text>.
 # Test knobs: HS_STATE_DIR, HS_SERVICES_DIR, HS_SETTINGS_DIR, HS_MACHINE_FILE, HS_CAPABILITIES_FILE, HS_SYSTEMD_RUN, HS_SYSTEMCTL, HS_INCUS, HS_DC,
-# HS_ADSS_SMBPASSWD, HS_ADSS_ROUTES (a file with the routes TSV instead of services.sh), HS_ADSS_PORT, HS_ADSS_TUNNEL_FROM, HS_PYTHON.
+# HS_ADSS_SMBPASSWD, HS_ADSS_ROUTES (a file with the routes TSV instead of services.sh), HS_ADSS_PORT, HS_ADSS_TUNNEL_FROM, HS_PYTHON,
+# HS_EXT_SH (the core's ext.sh).
 set -uo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 scripts=${HS_SCRIPTS:-$here/../../scripts}   # the core helpers; hs and hs-web set HS_SCRIPTS
@@ -28,9 +28,10 @@ scripts=${HS_SCRIPTS:-$here/../../scripts}   # the core helpers; hs and hs-web s
 state_root=${HS_STATE_DIR:-/var/lib/hs}
 state=$state_root/ad-selfservice
 conf=$state/config.json
-wanted=$state/wanted
+ext_sh=${HS_EXT_SH:-$scripts/ext.sh}
 svc_file=${HS_SERVICES_DIR:-$state_root/services.d}/ad-selfservice.toml
-unit=hs-ad-selfservice
+unit=hs-ext-svc@ad-selfservice.service   # the core's unit of the extension service
+old_unit=hs-ad-selfservice                # version 0.2 ran a transient unit of this name
 sctl=${HS_SYSTEMCTL:-systemctl}
 py=${HS_PYTHON:-python3}; command -v "$py" >/dev/null 2>&1 || py=python
 tab=$'\t'
@@ -74,45 +75,24 @@ dc_address() {   # the IPv4 of the DC instance
   "${HS_INCUS:-incus}" list "^$dc\$" -c 4 -f csv 2>/dev/null </dev/null | grep -oE '[0-9]{1,3}(\.[0-9]{1,3}){3}' | head -n 1
 }
 
-run_unit() {   # run_unit: the transient unit from config.json; no password or secret in argv or the environment
-  local dc port
-  dc=$(ss conf "$conf" dc_address); port=$(ss conf "$conf" port)
-  [ -n "$dc" ] && [ -n "$port" ] || return 1
-  pyabs=$(command -v "$py" 2>/dev/null || true); [ -n "$pyabs" ] || return 1
-  if unit_active; then "$sctl" stop "$unit" >/dev/null 2>&1 || true; fi
-  "${HS_SYSTEMD_RUN:-systemd-run}" --unit="$unit" --collect -p DynamicUser=yes -p ProtectSystem=strict -p ProtectHome=yes -p PrivateTmp=yes \
-    -p PrivateDevices=yes -p NoNewPrivileges=yes -p CapabilityBoundingSet= -p "RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX" -p IPAddressDeny=any \
-    -p "IPAddressAllow=127.0.0.1 ::1 $dc" -p RuntimeDirectory=hs-ad-selfservice -p RuntimeDirectoryMode=0700 -p MemoryMax=128M -p TasksMax=32 \
-    -p Restart=on-failure -p SystemCallFilter=@system-service "$pyabs" -I "$here/selfservice.py" serve --config "$conf" >/dev/null 2>&1
-}
 declare_service() {   # the descriptor: an existing exposure is kept
   bash "$scripts/services.sh" declare ad-selfservice --host 127.0.0.1 --port "${1:-8486}" --title "Change password" --icon key \
     --exposure private-ok --want local-proxy --public-path /password >/dev/null 2>&1
 }
-stop_unit() {
-  "$sctl" stop "$unit" >/dev/null 2>&1 || true
-  rm -f "$wanted"
+stop_unit() {   # hs ext stop: the service stays stopped after a reboot
+  bash "$ext_sh" stop ad-selfservice >/dev/null 2>&1 || "$sctl" stop "$unit" >/dev/null 2>&1 || true
 }
 
 verb=${1:-}; action=${2:-}
-case "$verb" in plan|start|boot|route) ;; *) echo "usage: selfservice-change.sh plan|start start|stop|expose private|expose public <full name> | boot" >&2; exit 1 ;; esac
+case "$verb" in plan|start|route) ;; *) echo "usage: selfservice-change.sh plan|start start|stop|expose private|expose public <full name>" >&2; exit 1 ;; esac
 shift 2 2>/dev/null || shift $# 2>/dev/null || true
 
 if [ "$verb" = route ]; then if tls_route; then echo yes; else echo no; fi; exit 0; fi
 
-if [ "$verb" = boot ]; then   # never asks, exit 0 always
-  skip() { printf 'status\tskipped\nreason\t%s\n' "$1"; exit 0; }
-  [ -f "$wanted" ] || skip 'the form was not started'
-  r=$(prereq) || skip "$r"
-  [ -f "$conf" ] || { printf 'status\trefused\nreason\tconfig.json is missing: run hs ext ad-selfservice start\n'; exit 0; }
-  if run_unit; then printf 'status\tstarted\n'; else printf 'status\trefused\nreason\tthe unit could not be started\n'; fi
-  exit 0
-fi
-
 case "$action" in start|stop|expose) ;; *) refuse "unknown action (start, stop or expose)" ;; esac
 
 if [ "$action" = stop ]; then
-  [ "$verb" = start ] || { printf 'status\tok\nheading\tstop the password form\nstep\tstop the unit %s\nnote\tit stays stopped after a reboot\nlong\tno\n' "$unit"; exit 0; }
+  [ "$verb" = start ] || { printf 'status\tok\nheading\tstop the password form\nstep\tstop the service %s\nnote\tit stays stopped after a reboot\nlong\tno\n' "$unit"; exit 0; }
   stop_unit
   printf 'status\tdone\n'
   exit 0
@@ -180,7 +160,7 @@ if [ "$verb" = plan ]; then
   tls_route || refuse "no TLS route to /password: the form is only served over HTTPS (reverseProxy = traefik-public and a public name; the local proxy has no HTTPS yet)" "${fix_route[@]}"
   printf 'status\tok\nheading\tstart the password form\n'
   printf 'step\twrite %s (the domain controller at %s, no secret)\n' "$conf" "$addr"
-  printf 'step\trun the unit %s on 127.0.0.1:%s (systemd-run; only the loopback and the domain controller are reachable from it)\n' "$unit" "$port"
+  printf 'step\tstart the service %s on 127.0.0.1:%s (hs ext start; it can write only where the package declares it)\n' "$unit" "$port"
   printf 'note\tit starts again after a reboot until you run stop\n'
   printf 'note\tthe form is shown only over HTTPS, at https://%s/password\n' "$(fqdn_of | grep . || echo '<name>')"
   printf 'long\tno\n'
@@ -196,6 +176,6 @@ ss make-config "$conf" "port=$port" "dc_address=$addr" "realm=$realm" "workgroup
   "caps=$(capability_file)" "caps_on=$state_root/capabilities-on" "caps_off=$state_root/capabilities-off" || refuse "could not write $conf"
 declare_service "$port" || refuse "could not declare the service ad-selfservice"
 tls_route || refuse "no TLS route to /password: the form is only served over HTTPS (reverseProxy = traefik-public and a public name; the local proxy has no HTTPS yet)" "${fix_route[@]}"
-run_unit || refuse "systemd-run could not start the unit hs-ad-selfservice (are you root?)"
-: > "$wanted"
+[ "$("$sctl" is-active "$old_unit" 2>/dev/null || true)" != active ] || "$sctl" stop "$old_unit" >/dev/null 2>&1 || true   # 0.2 left its unit on the port
+bash "$ext_sh" start ad-selfservice >/dev/null 2>&1 || refuse "the service ad-selfservice could not be started (is the package on and are you root? hs ext start ad-selfservice)"
 printf 'status\tdone\n'

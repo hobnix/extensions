@@ -2,7 +2,7 @@
 # help: the password form for domain users (they change their own AD password over HTTPS): status, log, start, stop, expose
 # help.de: das Passwortformular für Domänenbenutzer (sie ändern ihr AD-Passwort selbst über HTTPS): Status, Protokoll, starten, stoppen, freigeben
 # args: status | log [--lines N] | start | stop | expose private [--yes] | expose public <full name> [--confirm <full name>] | --status | --log | --suggest
-# The service is a transient systemd unit (selfservice.py serve); the work of start, stop, expose and boot is selfservice-change.sh's
+# The service is the extension service of the package (service.py, the core's unit hs-ext-svc@ad-selfservice); the work of start, stop and expose is selfservice-change.sh's
 # (plan, start); this script shows it to people (extensions/ad-selfservice/NOTES.md).
 #   --status   key TAB value (- when empty): running, wanted, port, dc, dc_address, exposure, fqdn, public_proxy, tls_route,
 #              ad_lockout_threshold, limit_account, limit_ip, limit_global, package
@@ -31,7 +31,7 @@
 # i18n: the form can only be public with reverseProxy = traefik-public (the proxy in a container cannot reach 127.0.0.1)
 # i18n: expose public needs the full name, for example pw.example.org | expose private or expose public <full name> | could not make the service public
 # i18n: could not make the service private
-# i18n: systemd-run could not start the unit hs-ad-selfservice (are you root?)
+# i18n: the service ad-selfservice could not be started (is the package on and are you root? hs ext start ad-selfservice)
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 scripts=${HS_SCRIPTS:-$here/../../scripts}   # the core helpers; hs and hs-web set HS_SCRIPTS
@@ -44,7 +44,7 @@ state_root=${HS_STATE_DIR:-/var/lib/hs}
 state=$state_root/ad-selfservice
 conf=$state/config.json
 svc_file=${HS_SERVICES_DIR:-$state_root/services.d}/ad-selfservice.toml
-unit=hs-ad-selfservice
+unit=hs-ext-svc@ad-selfservice.service   # the core's unit of the extension service (hs ext status)
 sctl=${HS_SYSTEMCTL:-systemctl}
 py=${HS_PYTHON:-python3}; command -v "$py" >/dev/null 2>&1 || py=python
 tab=$'\t'
@@ -62,7 +62,7 @@ conf_get() { { ss conf "$conf" "$1" 2>/dev/null || true; } | dash; }
 status_rows() {
   local running=no wanted=no port dc addr exposure=private fq proxy route thr pkg=off
   if [ "$("$sctl" is-active "$unit" 2>/dev/null || true)" = active ]; then running=yes; fi
-  if [ -f "$state/wanted" ]; then wanted=yes; fi
+  if [ -f "$conf" ] && [ ! -e "$state_root/ext-svc/ad-selfservice.stopped" ]; then wanted=yes; fi   # configured by start and not stopped by hand
   port=$(ss conf "$conf" port 2>/dev/null || true); port=${port:-${HS_ADSS_PORT:-8486}}
   dc=$(dc_name 2>/dev/null || true)
   addr=$(conf_get dc_address)
@@ -83,7 +83,7 @@ suggest_name() {   # one line for the page: pw.<first reverse proxy domain>, - w
 }
 log_rows() {   # newest first, at most 200; the user cleaned up again, the result one of the known words
   { if [ -n "${HS_ADSS_JOURNAL:-}" ]; then cat "$HS_ADSS_JOURNAL" 2>/dev/null
-    else journalctl -u "$unit" -o cat --no-pager 2>/dev/null; fi; } |
+    else journalctl -u "$unit" -o cat --no-pager 2>/dev/null; fi; } | sed 's/^info: //' |
     awk -F"$tab" -v OFS="$tab" '$1 == "audit" && NF == 5 && $5 ~ /^(ok|bad|policy|limited|unavailable|input|plain-http)$/ {
       u = $4; if (u !~ /^[A-Za-z0-9._-]+$/) u = "-"; print $2, $3, u, $5 }' | tac | head -n 200
 }

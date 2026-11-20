@@ -6,7 +6,7 @@ kind = "feature"
 requires = ["ad", "gateway"]
 provides = []
 needs = []
-# No NixOS module: a transient unit (systemd-run), started again at boot through `sys ext ad-selfservice boot`
+# No NixOS module: a service extension ([service] in package.toml), run by the core's unit hs-ext-svc@ad-selfservice and started again at boot by `hs ext boot`
 notes = "NOTES.md"
 # An extension package (docs/PLAN-extensions.md): hs ext ad-selfservice <command>, the rows are in commands.tsv.
 extension = true
