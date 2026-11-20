@@ -1,0 +1,26 @@
+# Cuts a release from GitHub: Actions, "release", Run workflow, branch main. The steps are the shared workflow of hobnix/server
+# (.github/workflows/package-release.yml, hobnix/server#522) which runs scripts/dev/release.sh of the core: gate, then the environment
+# `release` (the owner approves; it holds the secret RELEASE_SIGNING_KEY), sign, verify against the core's trusted keys, push, GitHub release.
+# Not run yet. `bash <core>/scripts/dev/release.sh` on the maintainer's machine does the same and stays the fallback.
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      level:
+        description: "patch, minor or major (the tag level the preparation pull request names)"
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      version:
+        description: "vX.Y.Z, only for the first tag; otherwise leave empty"
+        required: false
+        default: ""
+jobs:
+  release:
+    uses: hobnix/server/.github/workflows/package-release.yml@develop
+    with:
+      level: ${{ inputs.level }}
+      version: ${{ inputs.version }}
+    secrets: inherit
+    permissions:
+      contents: write

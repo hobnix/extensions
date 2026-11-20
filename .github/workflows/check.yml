@@ -23,3 +23,37 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq jq python3-pil
       - name: Tests (against the core checked out above)
         run: HS_CORE="$PWD/core" HS_TEST_CI=1 bash tests/run-all.sh
+  # The release pull request (into main): a package whose folder changed since the last tag needs a higher version in package.toml AND index.toml.
+  # The command comes from the core checkout (its default branch, develop), so this job works once hobnix/server has `pkg.py repo-unbumped`.
+  versions:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CORE_REPOSITORY }}
+          path: core
+      - name: Packages changed without a version bump
+        run: |
+          tag=$(git describe --tags --abbrev=0 origin/main 2>/dev/null || true)
+          if [ -z "$tag" ]; then echo "No tag on main yet: nothing to compare."; exit 0; fi
+          echo "Last release: $tag"
+          if ! python3 -I core/scripts/pkg.py repo-unbumped "$tag" .; then
+            echo "These packages changed since $tag without a higher version in package.toml and index.toml. Run the workflow prepare-release on develop (or bash <core>/scripts/dev/prepare-release.sh) and merge its pull request first"
+            exit 1
+          fi
+  # A pull request carries at most one bump label (hobnix/server#615): `bump: minor` or `bump: major`, none = patch.
+  labels:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: At most one bump label
+        env:
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          n=$(printf '%s' "$LABELS" | tr ',' '\n' | grep -c '^bump: ' || true)
+          echo "labels: ${LABELS:-none}"
+          [ "$n" -le 1 ] || { echo "::error::more than one bump label: keep one of 'bump: minor' or 'bump: major' (none = patch)"; exit 1; }

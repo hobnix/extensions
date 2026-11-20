@@ -12,11 +12,14 @@
 # plan: exit 0 = allowed, 1 = refused, 2 = something is missing. Output: status ok|refused|needs, reason<TAB><text>, needs<TAB><what>,
 #   heading|step|note|warn|command<TAB><line>, long<TAB>no.
 # start: the same checks, then status<TAB>done (or refused).
-# Test knobs: HS_PC (stand-in for pc.sh), HS_STATE_DIR (the folder with the file `pcs`).
+# Test knobs: HS_PC (stand-in for pc.sh), HS_STATE_DIR (the folder with games/pcs).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 pc=${HS_PC:-$here/pc.sh}
-file=${HS_STATE_DIR:-/var/lib/hs}/pcs
+file=${HS_STATE_DIR:-/var/lib/hs}/games/pcs
+# Since core 0.8 (hobnix/server#947) the state lives in /var/lib/hs/games/ (the unit may write only its own folder): move the old file once
+legacy=${HS_STATE_DIR:-/var/lib/hs}/pcs
+if [ -f "$legacy" ] && [ ! -e "$file" ]; then mkdir -p "$(dirname "$file")" && mv "$legacy" "$file" || true; fi
 
 refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 
