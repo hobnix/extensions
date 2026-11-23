@@ -3,9 +3,10 @@
 # help.de: Medien-Statistik: die gefundenen Medien-Apps, Minuten und Wiedergaben pro Monat
 # args: apps | stats | record-session <user> <minutes> [<title>] | record-import imported|upgraded <title> [<app>] | --apps | --stats | --months
 # First slice of the media hub (hobnix/core#928). It keeps no live state of its own: the apps come from `hs pkg integrations media`, the history is
-# the monthly rollup kind media-watch in state.db (n = plays, sum = minutes; one row per month and user, never pruned, docs/extensions-sdk.md), and
-# the milestones are package events (pkg.media-hub.*, retention classes in package.toml). The service media-svc.py polls the media apps and calls
-# record-session when a playback ends (adapters: adapter_*.py, UNVERIFIED); media-suggest.sh holds the storage suggestion.
+# the monthly rollups in state.db (n = plays, sum = minutes; one row per month and user, never pruned, docs/extensions-sdk.md: kind media-watch
+# from record-session and from before the Rust service, kind pkg.media-hub.session-completed from the service; every reader adds both), and
+# the milestones are package events (pkg.media-hub.*, retention classes in package.toml). The service (a Rust program, src/, bin/media-svc) polls the
+# media apps and counts a playback itself through the service protocol (adapters: src/adapter.rs, UNVERIFIED); media-suggest.sh holds the storage suggestion.
 # --apps = package TAB address TAB key state (ok|locked|missing|-) TAB kind (- when the app names none), one row per media app, no header.
 # --stats = one row: plays this month, minutes this month, plays in all, minutes in all, media apps found.
 # --months = month TAB minutes TAB plays, oldest first, the last 24 months, all users added; nothing when nothing is recorded.
@@ -16,8 +17,10 @@ here=$(cd "$(dirname "$0")" && pwd)
 scripts=${HS_SCRIPTS:-$here/../../scripts}   # the core helpers; hs and hs-web set HS_SCRIPTS
 . "$scripts/lib/ui.sh"
 . "$scripts/lib/event.sh"
-kind=media-watch   # the rollup kind
+kind=media-watch   # the rollup kind of record-session (a person's own count), and of the history before the Rust service
+svc_kind=pkg.media-hub.session-completed   # the rollup kind the service media-svc writes through the protocol (the core allows only a metric event kind of the package)
 user_re='^[A-Za-z0-9_.@-]{1,64}$'
+tab=$'	'
 
 usage() {
   say "usage: hs ext media-hub apps"
@@ -37,8 +40,8 @@ apps_rows() {   # package, address, key state, kind
     for (i = 1; i <= n; i++) if (e[i] ~ /^kind=/) kind = substr(e[i], 6)
     printf "%s\t%s\t%s\t%s\n", $1, $4, $5, kind }'
 }
-rollups() {   # month TAB user TAB kind TAB n TAB sum, oldest first
-  bash "$scripts/state.sh" rollups "$kind" 2>/dev/null || true
+rollups() {   # month TAB user TAB kind TAB n TAB sum, oldest first: both kinds, the readers add them up
+  { bash "$scripts/state.sh" rollups "$kind" 2>/dev/null || true; bash "$scripts/state.sh" rollups "$svc_kind" 2>/dev/null || true; } | sort -t "$tab" -k1,1 -s
 }
 months_rows() {   # month, minutes, plays: all users added, the last 24
   rollups | awk -F'\t' '{ n[$1] += $4; s[$1] += $5 } END { for (m in n) printf "%s\t%d\t%d\n", m, s[m], n[m] }' | sort | tail -n 24

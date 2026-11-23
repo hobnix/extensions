@@ -14,22 +14,23 @@ First slice, and what it keeps:
 - **Page:** stat tiles, a chart of minutes per month, the list of apps (reads `apps`, `stats`, `months`).
 
 Second slice (needs core API level 10 for the `[service]` table):
-- **Poller:** the extension protocol has no timer, so `media-svc.py` (the `[service]`) polls on its own clock, every 30 s (`HS_MEDIA_POLL_SECONDS`, 0 = off). It
-  asks the app for its sessions, notices when one is gone, and calls `record-session` with the minutes between first and last sight (at least one minute, at
-  most a day; a pause counts as playing). Who plays now is the snapshot topic `now-playing` (one document, overwritten). The key is read per call, never logged (see Keys by provider).
-- **Adapters:** one small file per app, `adapter_jellyfin.py` and `adapter_plex.py`: the endpoint, the key header and a `parse` that returns `{id, user, title,
-  path}`. **UNVERIFIED**: written from the public API descriptions and tested only against the hand-made fixtures in `tests/fixtures/media-hub/`. Plex is
-  not a recipe of the core; its adapter is used only when a package named `plex` declares `[integrations.media]`.
-- **Keys by provider** (core 0.12 `integration_key <name> <provider> <caller>`, the `key_header` column of `hs pkg integrations`): the poller reads the listing,
-  polls every provider that has a key, an address and an adapter, and sends each key only to the address of its own package, in the header of its row (a row
-  without `key_header` gets the header of the adapter: Jellyfin `X-Emby-Token`, Plex `X-Plex-Token`). A provider without an adapter (Radarr, Sonarr, SABnzbd)
-  is skipped and named once in the log. The key of a provider comes from the systemd credential `integration-media` only for the package that credential belongs
-  to (the first row of the listing with a key, the rule of core's `integration-grant`), never for another; any other provider's key is asked through
-  `integration_key media <provider> media-hub`. Tests with a Jellyfin and a Radarr row prove that no key crosses (tests/media-hub-poll.py).
-- **Known gap:** the platform hands a confined service ONE credential per integration (`integration-media`, the key of the first provider with a key file), and
-  the service is not told whose it is. Inside the sandbox the key files and the vault are out of reach, so the `integration_key ... <provider>` call of the
-  poller finds nothing there: a second provider (Plex next to Jellyfin) is polled only where that call works. Needs a core change: one credential per
-  provider (e.g. `integration-<name>-<provider>`) or a listing of the credential owners. The hub then asks for the credential of each provider.
+- **Poller:** the extension protocol has no timer, so the service (a Rust program, `src/`, `[[binary]]` `bin/media-svc`, hobnix/extensions#27) polls on its
+  own clock in a worker thread, every 30 s (`HS_MEDIA_POLL_SECONDS`, 0 = off). It asks the app for its sessions, notices when one is gone, and counts it with
+  the minutes between first and last sight (at least one minute, at most a day; a pause counts as playing; under 60 s, `HS_MEDIA_MIN_SECONDS`, it is not
+  counted): an `emit` of `session-completed` and a `rollup` of the same kind (`pkg.media-hub.session-completed`: the core adds to the monthly rollup only for
+  a metric event kind of the package), both through the protocol, no `record-session` call. `hs ext media-hub stats` and the page add that kind to the old
+  `media-watch` (record-session, and the history from before the Rust service). Who plays now is the snapshot topic `now-playing` (one document, overwritten).
+- **Adapters:** one function pair per app in `src/adapter.rs` (Jellyfin, Plex): the endpoint, the key header and a parse that returns `{id, user, title,
+  path}`. **UNVERIFIED**: written from the public API descriptions and tested only against the hand-made fixtures in `tests/fixtures/media-hub/` (unit tests
+  and `tests/service.rs`, which runs the real program against a local http server that serves them). Plex is not a recipe of the core; its adapter is used
+  only when a package named `plex` declares `[integrations.media]`.
+- **Plain http only:** the SDK client has no TLS. A provider whose `api_url` starts with `https://` is named in the log once (`TlsUnsupported`) and not
+  polled; put a local TLS-terminating proxy in front of it or use the plain http address of the app on the same host.
+- **Keys by provider:** the listing (`hs sys pkg integrations media`, run by the service) names each provider; its key is the systemd credential
+  `integration-media-<provider>` read with the SDK (`credential_for`), never from argv or the environment, never logged, and sent only to the address of
+  its own provider in the header of its row (a row without `key_header` gets the header of the adapter: Jellyfin `X-Emby-Token`, Plex `X-Plex-Token`). A
+  provider without an adapter (Radarr, Sonarr, SABnzbd) is skipped and named once in the log; one without a credential is named once and not asked. The
+  old known gap (one credential for all providers) is closed by the per-provider credentials of the core.
 - **Poster:** an `imported` event (`pkg.media-hub.imported`, written by `record-import`; nothing writes it by itself yet) makes the service run
   `hs sys ext posters start generate --eyebrow "New in the library" --title <title> --seed <crc of the title>`. The same title draws the same file, so an event
   delivered twice does no harm. If `posters` is off, the failure is logged and the event is still acknowledged.

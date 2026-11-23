@@ -56,6 +56,12 @@ jobs:
             ~/.cargo/git/db
           key: cargo-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.lock') }}
           restore-keys: cargo-${{ runner.os }}-
+      - name: Tests of the crates (unit tests, and the real program against a local http server)
+        if: steps.crates.outputs.count != '0'
+        run: |
+          for c in $(ls extensions/*/Cargo.toml examples/*/Cargo.toml 2>/dev/null); do
+            cargo test --locked --manifest-path "$c"
+          done
       - name: Build twice and compare (reproducible)
         if: steps.crates.outputs.count != '0'
         run: bash scripts/rust-build.sh --out built

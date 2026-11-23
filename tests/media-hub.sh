@@ -41,6 +41,8 @@ bash "$M" record-session anna 90 "Film" >/dev/null
 bash "$M" record-session anna 30 >/dev/null
 bash "$M" record-session ben 45 >/dev/null
 check_eq "a month adds up (3 plays, 165 minutes)" "$(printf '3\t165\t3\t165\t2')" "$(bash "$M" --stats | tr -d '\r')"
+bash "$CORE/scripts/state.sh" rollup-add pkg.media-hub.session-completed carl --n 1 --sum 20 >/dev/null   # what the Rust service writes through the protocol
+check_eq "the service's rollup kind is added to the count (4 plays, 185 minutes)" "$(printf '4	185	4	185	2')" "$(bash "$M" --stats | tr -d '')"
 check "a bad user is refused" bash -c "! bash '$M' record-session 'a b' 5"
 check "zero minutes are refused" bash -c "! bash '$M' record-session anna 0"
 check "more than a day is refused" bash -c "! bash '$M' record-session anna 1441"
