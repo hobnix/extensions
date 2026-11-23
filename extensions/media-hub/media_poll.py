@@ -13,6 +13,7 @@ import urllib.request
 import zlib
 
 ADAPTERS = ("jellyfin", "plex")
+HEADER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9-]{0,39}$")
 USER_RE = re.compile(r"[^A-Za-z0-9_.@-]")
 WATCHED_MAX = 200               # lines kept in watched.tsv
 MIN_SECONDS = 60                # a playback shorter than this is not counted (a skipped item, a test start)
@@ -36,22 +37,39 @@ def user_name(raw):
     return USER_RE.sub("_", clean(raw, 64))[:64] or "unknown"
 
 
+def credential_owner(text):
+    """The package whose key the platform hands over as the credential integration-media: the first row of the listing with a key state (the
+    same rule as core's integration-grant: sorted, first key_file). None when no row has a key. A locked key still counts: the platform
+    picks that provider and then hands over nothing."""
+    for line in text.splitlines():
+        f = line.split("	")
+        if len(f) >= 5 and f[4] != "-":
+            return f[0]
+    return None
+
+
 def parse_apps(text):
-    """(apps, note) from the rows of `hs sys pkg integrations media`: apps = [(package, api_url, extras)] that can be polled, note = why not.
-    Platform gap (see NOTES.md): integration_key <name> <caller> returns the key of the FIRST package of the integration that has a key_file, not
-    of a package of our choice. So the one app that can be polled is the first row with a key state; with Radarr before Jellyfin nothing is polled."""
+    """(apps, note) from the rows of `hs sys pkg integrations media` (package, integration, kind, api_url, key state, extras, key_header):
+    apps = [(package, api_url, extras, header)] of every provider that can be polled, note = why the others cannot. The header is the row's
+    key_header; a row without one gets the header of the adapter (the listing's default X-Api-Key is not what Jellyfin or Plex read)."""
+    apps, notes = [], []
     for line in text.splitlines():
         f = line.split("	")
         if len(f) < 5 or f[4] == "-":
             continue
-        if load_adapter(f[0]) is None:
-            return [], "the first media app with a key is %s, which the hub has no adapter for (the key helper returns only that key)" % f[0]
-        if f[4] != "ok":
-            return [], "the key of %s is %s" % (f[0], f[4])
-        if not f[3].startswith("http"):
-            return [], "%s has no address" % f[0]
-        return [(f[0], f[3], f[5] if len(f) > 5 else "-")], ""
-    return [], "no media app with a key found"
+        ad = load_adapter(f[0])
+        if ad is None:
+            notes.append("%s has no adapter" % f[0])
+        elif f[4] != "ok":
+            notes.append("the key of %s is %s" % (f[0], f[4]))
+        elif not f[3].startswith("http"):
+            notes.append("%s has no address" % f[0])
+        else:
+            h = f[6] if len(f) > 6 and HEADER_RE.match(f[6]) else ad.HEADER
+            apps.append((f[0], f[3], f[5] if len(f) > 5 else "-", h))
+    if not apps and not notes:
+        notes.append("no media app with a key found")
+    return apps, "; ".join(notes)
 
 
 def track(prev, sessions, now):
@@ -102,7 +120,7 @@ def remember_watched(state_dir, finished, now):
 
 
 class Poller:
-    """fetch(package, api_url, extras) -> the answer text or None; record(user, minutes, title) -> bool; both are passed in."""
+    """fetch(package, api_url, extras, header) -> the answer text or None; record(user, minutes, title) -> bool; both are passed in."""
 
     def __init__(self, fetch, record, state_dir, clock):
         self.fetch, self.record, self.state_dir, self.clock = fetch, record, state_dir, clock
@@ -112,9 +130,9 @@ class Poller:
         """One round over the apps. Returns the sessions playing now, [{app, user, title}], for the live document."""
         now = self.clock()
         playing = []
-        for package, url, extras in apps:
+        for package, url, extras, header in apps:
             ad = load_adapter(package)
-            text = self.fetch(package, url, extras)
+            text = self.fetch(package, url, extras, header)
             if text is None:        # the app did not answer: keep what we know, do not end its sessions
                 playing += [{"app": package, "user": s["user"], "title": s["title"]} for s in self.prev.get(package, {}).values()]
                 continue
@@ -129,14 +147,14 @@ class Poller:
 
 
 def http_fetch_factory(get_key, timeout=10):
-    """fetch(package, url, extras) for the Poller: GET with the key of the app in the header of its adapter. The key is read on every call
-    through get_key(package) (core's integration_key) and is never logged; an error is None."""
-    def fetch(package, url, extras):
+    """fetch(package, url, extras, header) for the Poller: GET with the key of THAT app in the header the listing names. The key is read on every
+    call through get_key(package) and is never logged; an error is None. A key is only ever sent to the address of the package it belongs to."""
+    def fetch(package, url, extras, header):
         ad = load_adapter(package)
         key = get_key(package)
-        if not key:
+        if not key or not HEADER_RE.match(header or ""):
             return None
-        req = urllib.request.Request(url.rstrip("/") + ad.ENDPOINT, headers={ad.HEADER: key, "Accept": ad.ACCEPT})
+        req = urllib.request.Request(url.rstrip("/") + ad.ENDPOINT, headers={header: key, "Accept": ad.ACCEPT})
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:     # noqa: S310 (the address is the app's own, from the integration listing)
                 return r.read(MAX_BODY).decode("utf-8", "replace")
@@ -145,16 +163,30 @@ def http_fetch_factory(get_key, timeout=10):
     return fetch
 
 
-def key_from_core(scripts, caller="media-hub"):
-    """get_key(package): the key through integration_key (scripts/lib/integration.sh) on a pipe; never in argv or the environment."""
+def key_by_provider(owner, credential, ask):
+    """get_key(package): the key of that package and no other. owner() = the package the platform's credential belongs to (credential_owner of the
+    current listing), credential() = $CREDENTIALS_DIRECTORY/integration-media or None, ask(package) = key through core's integration_key (a
+    confined service cannot reach it, then it is ''). The credential is used only for its owner: it is never tried for another app."""
     def get_key(package):
-        code = '. "$1/lib/ui.sh"; here=$1; . "$1/lib/integration.sh"; integration_key "$2" "$3"'
+        if package == owner():
+            k = credential()
+            if k:
+                return k
+        return ask(package)
+    return get_key
+
+
+def key_from_core(scripts, caller="media-hub"):
+    """ask(package): the key through `integration_key media <package> <caller>` (scripts/lib/integration.sh) on a pipe; never in argv or the
+    environment. Needs the vault and the key files, so it works only outside the sandbox; inside, it returns ''."""
+    def ask(package):
+        code = '. "$1/lib/ui.sh"; here=$1; . "$1/lib/integration.sh"; integration_key media "$2" "$3"'
         try:
-            r = subprocess.run(["bash", "-c", code, "_", scripts, "media", caller], capture_output=True, timeout=20, check=False)
+            r = subprocess.run(["bash", "-c", code, "_", scripts, package, caller], capture_output=True, timeout=20, check=False)
         except (OSError, subprocess.SubprocessError):
             return ""
         return r.stdout.decode("utf-8", "replace").strip() if r.returncode == 0 else ""
-    return get_key
+    return ask
 
 
 def poster_command(event, base):
