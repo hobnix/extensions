@@ -24,6 +24,15 @@ words = "state"
 kind = "tsv"
 ttl = 15
 
+[[web.reads]]
+words = "checks"
+kind = "tsv"
+ttl = 30
+
+# wake every saved game PC (the action of the page header below)
+[[web.changes]]
+patterns = ['^wake-all$']
+
 # wake or forget a saved game PC
 [[web.changes]]
 patterns = ['^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$', '^(wake|remove)$']
@@ -35,6 +44,19 @@ opts = [
   { flag = "--mac", pattern = '^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$' },
   { flag = "--ip", pattern = '^(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])){3}$' },
 ]
+
+# Slots besides the page (hobnix/server#472, docs/PLAN-package-pages.md): an action in the page header and on the Apps > Installed row, and a
+# health check in System > Health. The plan starts with this package's own area; `checks` is the read above whose rows are level TAB message.
+[[web.actions]]
+id = "wake-all"
+label = "Wake all PCs"
+plan = ["ext/games", "wake-all"]
+role = "app-manager"
+main = true
+
+[[health]]
+id = "pc-answers"
+read = "checks"
 
 # The page of the package (web/src/shell/GenericPage.svelte renders it at /extensions/games).
 # Blocks name the reads above by their words. `{name}` in a plan or label is the value of the row's column `name`.
