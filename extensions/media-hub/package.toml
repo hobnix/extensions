@@ -5,11 +5,19 @@ version = "0.1.0"
 kind = "extension"
 title = "Media hub: watch statistics from the media apps"
 title_de = "Medien-Hub: Statistik aus den Medien-Apps"
-requires_core = ">=7"
+requires_core = ">=10"   # 7 = events and rollups; 10 = the [service] table
 audience = "generic"
-# integration:media = the right to ask for the API key of the media apps (hs pkg integrations media; docs/PLAN-packages.md "Integrations").
-# The first slice reads no key yet: it only lists the apps and counts what is recorded.
-permissions = ["web.read", "integration:media", "events.emit:pkg.media-hub.*"]
+# integration:media = the right to ask for the API key of the media apps (integration_key, docs/PLAN-packages.md "Integrations"); the service reads it
+# to poll the sessions. web.change = the plan and start of the storage suggestion. fs.write = watched.tsv, the list of what was watched, which the
+# suggestion reads. events.emit: the events below (record-session writes them).
+permissions = ["web.read", "web.change", "integration:media", "events.emit:pkg.media-hub.*", "fs.write:/var/lib/hs/media-hub"]
+
+# The poller and the poster trigger: one process that stays (docs/extensions-sdk.md "Events and snapshots"). The protocol has no timer, so the
+# service polls on its own clock. It listens to `imported` to draw a poster.
+[service]
+exec = "@/media-svc.py"
+subscribe = ["pkg.media-hub.imported"]
+health_interval = 30
 
 # What happened, as events (docs/events.md "Package events"). The class says how long the raw row is kept; the history lives in the monthly rollup.
 [[events]]

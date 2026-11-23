@@ -1,0 +1,19 @@
+[
+  {
+    "Id": "s1",
+    "UserName": "anna",
+    "Client": "Jellyfin Web",
+    "NowPlayingItem": { "Name": "Dune", "Path": "/media/movies/Dune (2021)/Dune.mkv", "RunTimeTicks": 93000000000 },
+    "PlayState": { "PositionTicks": 1200000000, "IsPaused": false }
+  },
+  {
+    "Id": "s2",
+    "UserName": "ben",
+    "Client": "Android TV"
+  },
+  {
+    "Id": "s3",
+    "UserName": "carl smith",
+    "NowPlayingItem": { "Name": "Pilot", "Path": "/media/tv/Show/S01E01.mkv" }
+  }
+]

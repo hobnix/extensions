@@ -63,3 +63,29 @@ columns = [
   { key = "key", label = "Key", col = 2, kind = "dot", map = { ok = ["ok", "key found"], locked = ["warn", "key locked"], missing = ["off", "key file missing"] } },
   { key = "kind", label = "Kind", col = 3, optional = true },
 ]
+
+[[web.reads]]
+words = "suggestions"
+kind = "tsv"
+ttl = 300
+
+# move watched media to the large pool: the plan is the file manager's, the person confirms in the plan dialog (nothing starts on its own)
+[[web.changes]]
+patterns = ['^move-watched$', '^[^/\x00-\x1f]{1,200}$', '^(pool|disk):[a-z0-9-]{1,32}$', '^pool:[a-z0-9-]{1,32}$', '^/[^\x00-\x1f]{0,300}$']
+
+[[web.page.blocks]]
+type = "table"
+title = "Storage suggestions"
+read = "suggestions"
+key = "name"
+empty = "Nothing to suggest: no watched media old enough, or fewer than two writable pools."
+columns = [
+  { key = "name", label = "Watched", icon = "film-strip" },
+  { key = "from", label = "From", col = 1, kind = "mono" },
+  { key = "to", label = "To", col = 2, kind = "mono" },
+  { key = "path", label = "Folder", col = 3, kind = "mono" },
+  { key = "days", label = "Days ago", col = 4 },
+]
+rowActions = [
+  { label = "Move…", icon = "arrows-left-right", plan = ["ext/media-hub", "move-watched", "{name}", "{from}", "{to}", "{path}"], planTitle = "Move {name} to {to}" },
+]
