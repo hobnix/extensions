@@ -26,6 +26,7 @@ if [ ${#crates[@]} -eq 0 ]; then echo "no Rust crate in this repository: nothing
 target=x86_64-unknown-linux-musl
 export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-1700000000}   # fixed: the build must not depend on the day it runs
 export CARGO_INCREMENTAL=0
+python3 -I scripts/binary-check.py toolchain --rustc "$(rustc --version)" || exit 1   # the compiler must be the one rust-toolchain.toml pins
 sysroot=$(rustc --print sysroot)
 cargo_home=${CARGO_HOME:-$HOME/.cargo}
 
