@@ -12,7 +12,8 @@
 # (a 1 s try each), down when it does not (the PC is off or asleep, or Sunshine is not running: the two cannot be told apart), unknown when no
 # address is saved. Wakes nothing. HS_PC_PROBE (called with address and port, exit 0 = answers) stands in for the try.
 # --checks (hs sys ext games checks, the [[health]] check of capability.toml) = level TAB message, one row per PC with an address: ok when Sunshine
-# answers, warn when it does not (off, asleep, or Sunshine not running). A PC without an address has no row. Wakes nothing.
+# answers, info when it does not. Off, asleep and "on but Sunshine not running" cannot be told apart (see --state), so a PC that does not answer
+# is only info (never warn: a switched-off PC is normal). A PC without an address has no row. Wakes nothing.
 # HS_STATE_DIR points tests at another folder (the file is <it>/games/pcs); HS_WOL_CMD (called with the MAC) stands in for the packet, HS_PC_WAIT_SECONDS
 # for the 180 s of --wait, HS_PC_PORT for the port 47989 it waits for.
 set -euo pipefail
@@ -62,7 +63,7 @@ case "$cmd" in
     case "$st" in
       up)   printf 'ok	Game PC %s answers
 ' "$n" ;;
-      down) printf 'warn	Game PC %s does not answer (off, asleep, or Sunshine not running)
+      down) printf 'info	Game PC %s does not answer (off, asleep, or Sunshine not running)
 ' "$n" ;;
     esac
   done ;;

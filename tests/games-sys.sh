@@ -41,7 +41,8 @@ check_eq "down when it does not" "sleeper${tab}10.10.10.51${tab}down" "$(sed -n 
 echo "-- pc --checks (the [[health]] slot) and wake-all (the [[web.actions]] slot)"
 out=$(HS_PC_PROBE=$WORK/probe bash "$PKGS/games/pc.sh" --checks)
 check_eq "ok row for the PC that answers" "ok${tab}Game PC gaming answers" "$(sed -n 1p <<<"$out")"
-check_eq "warn row for the PC that does not, none for no address" "warn${tab}Game PC sleeper does not answer (off, asleep, or Sunshine not running)" "$(sed -n 2p <<<"$out")$(sed -n 3p <<<"$out")"
+check_eq "info row (never warn) for the PC that does not, none for no address" "info${tab}Game PC sleeper does not answer (off, asleep, or Sunshine not running)" "$(sed -n 2p <<<"$out")$(sed -n 3p <<<"$out")"
+check_eq "no warn row while a PC is merely off" "0" "$(grep -c '^warn' <<<"$out" || true)"
 check_out "wake-all plan names every PC" "sleeper" bash "$PKGS/games/pc-change.sh" plan wake-all
 check_out "wake-all start is done" "status${tab}done" env HS_WOL_CMD=true bash "$PKGS/games/pc-change.sh" start wake-all
 
