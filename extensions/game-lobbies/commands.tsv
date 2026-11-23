@@ -1,0 +1,14 @@
+# Commands of the extension package "game-lobbies" (docs/PLAN-extensions.md). Same columns as scripts/lib/registry.tsv:
+# kind	path	script	args	help	help.de	flags
+user	ext game-lobbies list	@/lobby.sh	list	game lobbies saved (name, Incus instance, port, game)	gespeicherte Spiel-Lobbys (Name, Incus-Instanz, Port, Spiel)	topic:instances,reads
+user	ext game-lobbies add	@/lobby.sh	add {rest}	save a lobby: hs ext game-lobbies add <name> <instance> <port> [<game>]	eine Lobby merken: hs ext game-lobbies add <Name> <Instanz> <Port> [<Spiel>]	topic:instances,changes
+user	ext game-lobbies remove	@/lobby.sh	remove {rest}	forget a lobby (instance and snapshots stay, its wake links go): hs ext game-lobbies remove <name>	eine Lobby vergessen (Instanz und Snapshots bleiben, ihre Aufweck-Links verfallen): hs ext game-lobbies remove <Name>	topic:instances,changes
+user	ext game-lobbies link	@/lobby.sh	link {rest}	make a wake link that expires: hs ext game-lobbies link <name> [--hours N] | list | revoke <id>	einen Aufweck-Link mit Ablauf erzeugen: hs ext game-lobbies link <Name> [--hours N] | list | revoke <id>	topic:instances,changes
+user	ext game-lobbies redeem	@/lobby.sh	redeem	wake the lobby a link belongs to; the token is read from stdin, never from an argument (the wake page calls this)	die Lobby wecken, zu der ein Link gehört; das Token kommt von stdin, nie als Argument (die Weckseite ruft das auf)	nohelp,topic:instances,changes
+sys	sys ext game-lobbies list	@/lobby.sh	--list	lobbies as name, instance, port, game (- when none)	-
+sys	sys ext game-lobbies state	@/lobby.sh	--state	lobbies as name, instance, state (running, stopped, missing), players (established TCP connections to the port, - when not running), port	-
+sys	sys ext game-lobbies summary	@/lobby.sh	--summary	one row for the card: level (ok, info, off), line ("2 players in 1 of 3 lobbies")	-
+sys	sys ext game-lobbies worlds	@/lobby.sh	--worlds	snapshots of every lobby instance as lobby, snapshot, created (YYYY-MM-DD HH:MM), newest first	-
+sys	sys ext game-lobbies links	@/lobby.sh	--links	wake links as id, lobby, token, expires (YYYY-MM-DD HH:MM), state (active, expired); the token is a secret: the read needs the role app-manager	-
+sys	sys ext game-lobbies plan <name> <action>	@/lobby-change.sh	plan {1} {2} {rest}	what restoring a snapshot, making or revoking a wake link, saving or forgetting a lobby would do, as data (exit 0 ok, 1 refused, 2 something missing)	-
+sys	sys ext game-lobbies start <name> <action>	@/lobby-change.sh	start {1} {2} {rest}	do it: <name> restore <snapshot> | link [--hours N] | add --instance <i> --port <p> [--game <g>] | remove; <id> revoke; answers status done	-

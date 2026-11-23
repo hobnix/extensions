@@ -1,0 +1,201 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "game-lobbies"
+title = "Game lobbies: active lobbies, worlds and snapshots, wake link"
+title_de = "Spiel-Lobbys: aktive Lobbys, Welten und Snapshots, Aufweck-Link"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+# No NixOS module: scripts and a web page. Off by default; `hs ext enable game-lobbies` switches it on, nothing else changes.
+notes = "NOTES.md"
+# An extension package (docs/PLAN-extensions.md): hs ext game-lobbies <command>, the rows are in commands.tsv.
+extension = true
+
+# What the web interface may ask for and start, only while the package is on. Each read must be a `sys ext game-lobbies ...` row of
+# commands.tsv; the changes need its plan and start rows. Area of the changes: "ext/game-lobbies". The role is the least role that may use
+# the entry (ADR 0012); friends with the role viewer see the lobbies and the worlds, they change nothing.
+[[web.reads]]
+words = "list"
+kind = "tsv"
+ttl = 30
+role = "viewer"
+
+[[web.reads]]
+words = "state"
+kind = "tsv"
+ttl = 15
+role = "viewer"
+
+[[web.reads]]
+words = "summary"
+kind = "tsv"
+ttl = 15
+role = "viewer"
+
+[[web.reads]]
+words = "worlds"
+kind = "tsv"
+ttl = 30
+role = "viewer"
+
+# the token of a wake link is a secret: only app-manager and admin read the list of links
+[[web.reads]]
+words = "links"
+kind = "tsv"
+ttl = 15
+role = "app-manager"
+
+# go back to a snapshot of a lobby's instance (the plan names the newer snapshots that go)
+[[web.changes]]
+patterns = ['^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$', '^restore$', '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$']
+role = "app-manager"
+
+# make a wake link that expires
+[[web.changes]]
+fixed = ['^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$', '^link$']
+opts = [ { flag = "--hours", pattern = '^[0-9]{1,3}$' } ]
+role = "app-manager"
+
+# revoke a wake link by its id
+[[web.changes]]
+patterns = ['^[0-9a-f]{8}$', '^revoke$']
+role = "app-manager"
+
+# save a lobby
+[[web.changes]]
+fixed = ['^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$', '^add$']
+opts = [
+  { flag = "--instance", pattern = '^[A-Za-z0-9][A-Za-z0-9-]{0,62}$' },
+  { flag = "--port", pattern = '^[0-9]{1,5}$' },
+  { flag = "--game", pattern = '^[A-Za-z0-9][A-Za-z0-9._ -]{0,40}$' },
+]
+role = "admin"
+
+# forget a lobby
+[[web.changes]]
+patterns = ['^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$', '^remove$']
+role = "admin"
+
+# The page of the package: one place in the group Apps with three tabs (hobnix/server#790, docs/PLAN-package-pages.md). Not tested on hardware yet.
+[web.page]
+title = "Game lobbies"
+icon = "gamepad"
+crumb = "Apps"
+group = "apps"
+sub = "game servers on Incus: who plays, worlds, wake links"
+role = "viewer"
+
+# The card "Active lobbies" on the group page and the Apps list: the first row of `summary`, field 0 is the dot, field 1 the line.
+[web.page.state]
+read = "summary"
+dot = 0
+line = 1
+
+[[web.page.tabs]]
+title = "Lobbies"
+
+[[web.page.tabs.blocks]]
+type = "stat"
+title = "Active lobbies"
+read = "summary"
+items = [ { label = "Now", col = 1 } ]
+
+[[web.page.tabs.blocks]]
+type = "table"
+title = "Lobbies"
+read = "list"
+key = "name"
+empty = "No lobby saved yet. Use the form below."
+joins = [ { read = "state", key = "name", col = 2, as = "state" }, { read = "state", key = "name", col = 3, as = "players" } ]
+columns = [
+  { key = "name", label = "Name", icon = "gamepad" },
+  { key = "instance", label = "Instance", col = 1, kind = "mono" },
+  { key = "port", label = "Port", col = 2, kind = "mono" },
+  { key = "game", label = "Game", col = 3, optional = true },
+  { key = "state", label = "State", kind = "dot", map = { running = ["ok", "running"], stopped = ["off", "stopped"], missing = ["bad", "the instance does not exist"] } },
+  { key = "players", label = "Players", kind = "mono" },
+]
+rowActions = [
+  { label = "Wake link", icon = "link", title = "Make a link that wakes {name} and expires after a day", plan = ["ext/game-lobbies", "{name}", "link"], planTitle = "Wake link for {name}" },
+  { label = "Remove", icon = "x", iconOnly = true, danger = true, title = "Forget {name} (the instance stays)", plan = ["ext/game-lobbies", "{name}", "remove"], planTitle = "Forget {name}" },
+]
+
+[[web.page.tabs.blocks]]
+type = "form"
+title = "Add a lobby"
+submit = "Add lobby"
+plan = ["ext/game-lobbies", "{name}", "add", "--instance", "{instance}", "--port", "{port}", "--game", "{game}"]
+planTitle = "Save the lobby {name}"
+
+[[web.page.tabs.blocks.fields]]
+key = "name"
+label = "Name"
+type = "text"
+required = true
+pattern = '^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$'
+
+[[web.page.tabs.blocks.fields]]
+key = "instance"
+label = "Incus instance"
+type = "text"
+required = true
+pattern = '^[A-Za-z0-9][A-Za-z0-9-]{0,62}$'
+
+[[web.page.tabs.blocks.fields]]
+key = "port"
+label = "Game port"
+type = "number"
+required = true
+min = 1
+max = 65535
+
+[[web.page.tabs.blocks.fields]]
+key = "game"
+label = "Game"
+type = "text"
+required = true
+pattern = '^[A-Za-z0-9][A-Za-z0-9._ -]{0,40}$'
+
+# The snapshots of every lobby instance. Restore goes through the plan (it names the newer snapshots that go) and a start.
+[[web.page.tabs]]
+title = "Worlds and console"
+
+[[web.page.tabs.blocks]]
+type = "text"
+text = "The world of a lobby is its instance. Restore goes back to a snapshot: players are disconnected, newer snapshots are deleted. The live terminal and the game console are not here yet."
+
+[[web.page.tabs.blocks]]
+type = "table"
+title = "Snapshots"
+read = "worlds"
+key = "snapshot"
+empty = "No snapshots yet. Take one with hs ct <instance> snapshot."
+columns = [
+  { key = "lobby", label = "Lobby", icon = "gamepad" },
+  { key = "snapshot", label = "Snapshot", col = 1, kind = "mono" },
+  { key = "created", label = "Taken", col = 2, kind = "mono" },
+]
+rowActions = [
+  { label = "Restore", icon = "history", title = "Go back to {snapshot} in {lobby}", plan = ["ext/game-lobbies", "{lobby}", "restore", "{snapshot}"], planTitle = "Restore {lobby} to {snapshot}", danger = true },
+]
+
+[[web.page.tabs]]
+title = "Wake links"
+role = "app-manager"
+
+[[web.page.tabs.blocks]]
+type = "table"
+title = "Wake links"
+read = "links"
+key = "id"
+empty = "No wake link yet. Use Wake link on a lobby."
+columns = [
+  { key = "id", label = "Id", kind = "mono" },
+  { key = "lobby", label = "Lobby", col = 1, icon = "gamepad" },
+  { key = "token", label = "Token", col = 2, kind = "mono" },
+  { key = "expires", label = "Expires (UTC)", col = 3, kind = "mono" },
+  { key = "state", label = "State", col = 4, kind = "dot", map = { active = ["ok", "active"], expired = ["off", "expired"] } },
+]
+rowActions = [
+  { label = "Revoke", icon = "x", iconOnly = true, danger = true, title = "Stop link {id} from working", plan = ["ext/game-lobbies", "{id}", "revoke"], planTitle = "Revoke wake link {id}" },
+]

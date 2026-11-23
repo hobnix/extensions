@@ -1,0 +1,9 @@
+# Manifest of a package (docs/PLAN-packages.md).
+name = "game-lobbies"
+version = "0.1.0"
+kind = "extension"
+title = "Game lobbies: active lobbies, worlds and snapshots, wake link"
+title_de = "Spiel-Lobbys: aktive Lobbys, Welten und Snapshots, Aufweck-Link"
+requires_core = ">=1"
+audience = "generic"
+permissions = ["web.read", "web.change", "host:incus", "fs.write:/var/lib/hs/game-lobbies"]
