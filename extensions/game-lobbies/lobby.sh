@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: game lobbies on Incus instances: list, add, remove, wake links that expire
 # help.de: Spiel-Lobbys auf Incus-Instanzen: anzeigen, hinzufügen, entfernen, Aufweck-Links mit Ablauf
-# args: list | --list | --state | --summary | --worlds | --links | add <name> <instance> <port> [<game>] | remove <name> | link <name> [--hours N] | link list | link revoke <id> | redeem
+# args: list | --list | --state | --summary | --checks | --worlds | --links | add <name> <instance> <port> [<game>] | remove <name> | link <name> [--hours N] | link list | link revoke <id> | redeem
 # A lobby is a name for an Incus instance that runs a game server (name, instance, port, game) in /var/lib/hs/game-lobbies/lobbies. Wake links are
 # lines of /var/lib/hs/game-lobbies/links (id, lobby, sha256 of the token as hex, expires as epoch, created as epoch; the file is 0600). The token itself is
 # shown once when the link is made and never stored or logged.
@@ -10,6 +10,7 @@
 #   --state    name TAB instance TAB state (running|stopped|missing) TAB players TAB port; players = established TCP connections to the port counted
 #              inside the instance (- when it is not running; a game that talks UDP only shows 0)
 #   --summary  level TAB line for the card: off (no lobby), info (none running), ok (players and running lobbies)
+#   --checks   level TAB message per lobby for the health check: ok (running), info (stopped: nobody is playing, not a problem), warn (its instance is gone)
 #   --worlds   lobby TAB snapshot TAB created (YYYY-MM-DD HH:MM), newest first
 #   --links    id TAB lobby TAB expires (YYYY-MM-DD HH:MM) TAB state (active|expired)
 # redeem reads one token line from stdin (never an argument) and starts the instance of its lobby while the link has not expired.
@@ -85,6 +86,19 @@ case "$cmd" in
   if [ "$total" -eq 0 ]; then printf 'off\tNo lobby saved\n'
   elif [ "$run" -eq 0 ]; then printf 'info\tNo lobby is running (%s saved)\n' "$total"
   else printf 'ok\t%s players in %s of %s lobbies\n' "$pl" "$run" "$total"; fi ;;
+
+--checks)
+  [ -s "$file" ] || exit 0
+  while IFS=$'	' read -r n inst st p _; do
+    case "$st" in
+      running) printf 'ok	Lobby %s is running (%s players)
+' "$n" "${p//-/0}" ;;
+      stopped) printf 'info	Lobby %s is stopped
+' "$n" ;;
+      *)       printf 'warn	Lobby %s: the instance %s does not exist
+' "$n" "$inst" ;;
+    esac
+  done < <(bash "$0" --state) ;;
 
 --worlds)
   [ -s "$file" ] || exit 0

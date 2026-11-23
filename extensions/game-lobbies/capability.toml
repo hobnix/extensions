@@ -32,6 +32,13 @@ kind = "tsv"
 ttl = 15
 role = "viewer"
 
+# one row per lobby for the health check below
+[[web.reads]]
+words = "checks"
+kind = "tsv"
+ttl = 15
+role = "viewer"
+
 [[web.reads]]
 words = "worlds"
 kind = "tsv"
@@ -75,6 +82,14 @@ role = "admin"
 [[web.changes]]
 patterns = ['^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$', '^remove$']
 role = "admin"
+
+# Health (docs/extensions.md, Slots): a lobby whose instance is stopped is `info` (nobody plays, not a problem, nothing is sent); a lobby whose instance
+# is gone is `warn` and shows in System > Health with the package named. Needs Incus: the check is not asked while the capability incus is off.
+[[health]]
+id = "lobbies"
+read = "checks"
+title = "Game lobbies"
+requires = "incus"
 
 # The page of the package: one place in the group Apps with three tabs (hobnix/server#790, docs/PLAN-package-pages.md). Not tested on hardware yet.
 [web.page]
@@ -179,9 +194,12 @@ rowActions = [
   { label = "Restore", icon = "history", title = "Go back to {snapshot} in {lobby}", plan = ["ext/game-lobbies", "{lobby}", "restore", "{snapshot}"], planTitle = "Restore {lobby} to {snapshot}", danger = true },
 ]
 
+# The wake page is served through the gateway, so the list of links is only shown while the gateway is on (the links themselves can be made without it).
 [[web.page.tabs]]
+id = "wake-links"
 title = "Wake links"
 role = "app-manager"
+requires = "gateway"
 
 [[web.page.tabs.blocks]]
 type = "table"
