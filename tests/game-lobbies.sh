@@ -48,6 +48,12 @@ check "bad port refused" bash -c "! $L add x mc 70000 2>/dev/null"
 check "reserved name refused" bash -c "! $L add list mc 1 2>/dev/null"
 check_eq "--state counts players of the running one" "$(printf 'minecraft\tmc\trunning\t2\t25565\nquiet\tidle\tstopped\t-\t7777')" "$($L --state)"
 check_eq "--summary for the card" "$(printf 'ok\t2 players in 1 of 2 lobbies')" "$($L --summary)"
+check_eq "--checks: running is ok, stopped is info" "$(printf 'ok	Lobby minecraft is running (2 players)
+info	Lobby quiet is stopped')" "$($L --checks)"
+$L add gone nope 1234 >/dev/null
+check_eq "--checks: a missing instance is warn" "warn	Lobby gone: the instance nope does not exist" "$($L --checks | grep '^warn')"
+$L remove gone >/dev/null
+check_eq "--checks is empty without lobbies" "" "$(HS_STATE_DIR=$WORK/none $L --checks)"
 check_eq "--worlds newest first" "$(printf 'minecraft\tc\t2026-11-03 10:00\nminecraft\tb\t2026-11-02 10:00\nminecraft\ta\t2026-11-01 10:00')" "$($L --worlds)"
 
 echo "-- wake link"
@@ -76,6 +82,10 @@ check "hours out of range refused" bash -c "! $L link quiet --hours 9999 2>/dev/
 id=$($L --links | cut -f1)
 check_out "revoke" "Revoked" $L link revoke "$id"
 check_eq "no link left" "" "$($L --links)"
+
+echo "-- manifest"
+check_out "health check and gated tab are declared" "health.*lobbies" bash -c "grep -A3 '^\[\[health' $PK/capability.toml | tr '\n' ' '"
+check "health read is declared in commands.tsv" grep -q 'sys ext game-lobbies checks' $PK/commands.tsv
 
 echo "-- lobby-change.sh"
 check_out "restore plan names the newer snapshots" "warn.*b c" bash -c "$C plan minecraft restore a | tr '\t' ' '"

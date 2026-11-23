@@ -11,3 +11,11 @@ time (hmac.compare_digest); a link works any number of times until it expires or
 
 Not here yet: the PTY terminal, the game's RCON console, the HTTP page that serves a wake link, restore as a background job. See the pull request.
 Scripts: lobby.sh (reads, add, remove, link, redeem), lobby-change.sh (plan and start). Test stand-ins: HS_INCUS, HS_CT (manage-ct.sh), HS_STATE_DIR, HS_NOW.
+
+Second slice: a `[[health]]` check `lobbies` (read `checks`, requires `incus`): a running lobby is `ok`, a stopped one `info` (not a problem, nothing is sent), a lobby
+whose instance is gone `warn` (System > Health, package named). The card already answered `info` when no lobby runs. The tab "Wake links" has `requires = "gateway"`
+(the wake page will sit behind it); links stay creatable from the lobby row without it. guide.md is the package guide.
+
+Waiting on the core, not built here: PTY terminal (hobnix/server#1123), RCON console (#1124), secrets for packages, e.g. an RCON password (#1125), extension actions
+as background jobs (#1126). Until #1126 the restore is synchronous (`long yes` in the plan). Idle sleep (stop an empty lobby after a while) and a snapshot before an update
+need a timer or an event hook the extension protocol does not offer: open questions on #924.
