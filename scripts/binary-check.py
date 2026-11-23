@@ -7,6 +7,13 @@
       --release     a program named in a [[binary]] table must be committed (the release pull request, into main)
   binary-check.py install CRATE_FOLDER BUILT_FILE
       copies the built program to the path of the [[binary]] table, sets the executable bit, writes the sha256 into package.toml
+  binary-check.py guard --base-branch B --head-branch H [--base REV] [--head REV] [ROOT]
+      a pull request that is not the release preparation (head release/prepare-*) or the release (into main) must not add or change a
+      file named in a [[binary]] table, nor an executable file over 1 MB (REV defaults: origin/B, HEAD; compared from their merge base)
+  binary-check.py report [--commit SHA] [ROOT]
+      Markdown table of every committed [[binary]]: path, size, sha256 and the commit the program was built from (SHA, default HEAD)
+  binary-check.py toolchain [--online] [--rustc "<rustc --version>"] [ROOT]
+      the pinned Rust version (rust-toolchain.toml, the only place); --online checks that the release exists, --rustc that the compiler is it
 
 A package declares its program in package.toml (the core's manifest has no field for it yet, it ignores the table):
 
@@ -34,6 +41,9 @@ TARGET = "x86_64-unknown-linux-musl"
 MAGIC = (b"\x7fELF", b"MZ", b"\xfe\xed\xfa\xce", b"\xfe\xed\xfa\xcf", b"\xce\xfa\xed\xfe", b"\xcf\xfa\xed\xfe", b"\xca\xfe\xba\xbe")
 SKIP = {"target", ".git", "__pycache__"}
 SHA = re.compile(r"^[0-9a-f]{64}$")
+GUARD_BYTES = 1024 * 1024
+RELEASE_BRANCH = "release/prepare-"   # the branch scripts/dev/prepare-release.sh of the core makes
+DIST = "https://static.rust-lang.org/dist/channel-rust-%s.toml"
 
 
 def sha256(path):
@@ -211,7 +221,135 @@ def install(crate, built_file):
     return 0
 
 
+def binary_paths(manifest_text, rel):
+    """Repo-relative paths named in the [[binary]] tables of a package.toml text."""
+    try:
+        decl = tomllib.loads(manifest_text).get("binary", [])
+    except tomllib.TOMLDecodeError:
+        return set()
+    return {f"{rel}/{b['path']}" for b in decl if isinstance(decl, list) and isinstance(b, dict) and isinstance(b.get("path"), str)}
+
+
+def guard(root, base_branch, head_branch, base=None, head="HEAD"):
+    """Problems of a pull request that is neither the release preparation nor the release."""
+    if head_branch.startswith(RELEASE_BRANCH) or base_branch == "main":
+        return []
+    base = base or "origin/" + base_branch
+
+    def run(*args):
+        return subprocess.run(["git", "-C", root, *args], capture_output=True, text=True)
+    mb = run("merge-base", base, head)
+    if mb.returncode != 0:
+        return [f"cannot find the merge base of {base} and {head}"]
+    mb = mb.stdout.strip()
+    diff = run("diff", "--name-status", "--no-renames", "-z", mb, head)
+    if diff.returncode != 0:
+        return [f"diff failed: {diff.stderr.strip()}"]
+    parts = diff.stdout.split("\0")
+    changed = [parts[i + 1] for i in range(0, len(parts) - 1, 2) if parts[i] != "D"]   # a deleted program is fine
+    listed = set()
+    for ref in (head, mb):   # a program named before or after the pull request
+        for rel in run("ls-tree", "-d", "--name-only", ref, "extensions/", "examples/").stdout.split():
+            r = run("show", f"{ref}:{rel}/package.toml")
+            if r.returncode == 0:
+                listed |= binary_paths(r.stdout, rel)
+    out = []
+    for p in changed:
+        if p in listed:
+            out.append(f"{p}: a program listed in [[binary]] is added or changed; only the release preparation (branch {RELEASE_BRANCH}*) commits programs")
+            continue
+        ls = run("ls-tree", "-l", head, "--", p).stdout.split()
+        if len(ls) >= 4 and ls[0] == "100755" and ls[3].isdigit() and int(ls[3]) > GUARD_BYTES:
+            out.append(f"{p}: an executable file of {ls[3]} bytes (over 1 MB) is added or changed; a program belongs to the release preparation")
+    return out
+
+
+def report(root, commit=None):
+    head = commit or subprocess.run(["git", "-C", root, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip() or "unknown"
+    rows = []
+    for rel in folders(root):
+        try:
+            with open(os.path.join(root, rel, "package.toml"), encoding="utf-8") as f:
+                paths = sorted(binary_paths(f.read(), rel))
+        except OSError:
+            continue
+        for p in paths:
+            full = os.path.join(root, p)
+            if os.path.isfile(full):
+                rows.append(f"| `{p}` | {os.path.getsize(full)} | `{sha256(full)}` | `{head}` |")
+    return rows
+
+
+def pinned(root):
+    with open(os.path.join(root, "rust-toolchain.toml"), "rb") as f:
+        ch = tomllib.load(f).get("toolchain", {}).get("channel")
+    if not isinstance(ch, str) or not re.fullmatch(r"\d+\.\d+\.\d+", ch):
+        raise ValueError("rust-toolchain.toml: [toolchain] channel must be an exact version like 1.94.1 (not stable, not 1.94)")
+    return ch
+
+
+def toolchain(root, online, rustc):
+    try:
+        ch = pinned(root)
+    except (OSError, tomllib.TOMLDecodeError, ValueError) as e:
+        return [str(e)]
+    out = []
+    wf = os.path.join(root, ".github", "workflows")   # one place only: nothing else may name a version
+    for n in sorted(os.listdir(wf)) if os.path.isdir(wf) else []:
+        with open(os.path.join(wf, n), encoding="utf-8") as f:
+            for i, line in enumerate(f, 1):
+                if not line.lstrip().startswith("#") and re.search(r"RUSTUP_TOOLCHAIN|toolchain:\s*['\"]?\d|rustup (toolchain install|default) +\d", line):
+                    out.append(f".github/workflows/{n}:{i}: names a toolchain; the version lives only in rust-toolchain.toml")
+    if rustc is not None and not re.match(r"rustc %s " % re.escape(ch), rustc):
+        out.append(f"the compiler is '{rustc.strip()}', rust-toolchain.toml pins {ch}")
+    if online:
+        import urllib.error
+        import urllib.request
+        try:
+            urllib.request.urlopen(urllib.request.Request(DIST % ch, method="HEAD"), timeout=30).close()
+        except urllib.error.HTTPError as e:
+            out.append(f"Rust {ch} is not installable: {DIST % ch} answers {e.code}")
+        except (urllib.error.URLError, OSError) as e:
+            out.append(f"could not reach {DIST % ch} to check Rust {ch}: {e}")
+    if not out:
+        print(f"ok   pinned Rust {ch}" + (" (release exists)" if online else ""))
+    return out
+
+
+def other(cmd, rest):
+    root = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+    o = {"online": False}
+    while rest:
+        a = rest.pop(0)
+        if a == "--online":
+            o["online"] = True
+        elif a.startswith("--") and rest:
+            o[a[2:]] = rest.pop(0)
+        else:
+            root = os.path.abspath(a)
+    if cmd == "report":
+        rows = report(root, o.get("commit"))
+        if rows:
+            print("| program | bytes | sha256 | built from commit |\n|---|---|---|---|")
+            print("\n".join(rows))
+        return 0
+    if cmd == "guard":
+        if "base-branch" not in o or "head-branch" not in o:
+            print(__doc__, file=sys.stderr)
+            return 2
+        problems = guard(root, o["base-branch"], o["head-branch"], o.get("base"), o.get("head", "HEAD"))
+        if not problems:
+            print("ok   no program added or changed outside the release preparation")
+    else:
+        problems = toolchain(root, o["online"], o.get("rustc"))
+    for p in problems:
+        print("FAIL " + p)
+    return 1 if problems else 0
+
+
 def main(argv):
+    if argv and argv[0] in ("guard", "report", "toolchain"):
+        return other(argv[0], argv[1:])
     if not argv or argv[0] not in ("check", "install"):
         print(__doc__, file=sys.stderr)
         return 2

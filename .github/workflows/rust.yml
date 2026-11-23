@@ -7,6 +7,27 @@ on:
   push:
   pull_request:
 jobs:
+  # hobnix/extensions#30: only the release preparation (branch release/prepare-*) and the release (into main) may carry a program.
+  guard:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: No program outside the release preparation
+        run: python3 -I scripts/binary-check.py guard --base-branch "$BASE" --head-branch "$HEAD" --base "origin/$BASE" --head "${{ github.event.pull_request.head.sha }}"
+        env:
+          BASE: ${{ github.base_ref }}
+          # a fork cannot claim the release branch name
+          HEAD: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || 'fork' }}
+  # The pinned Rust version (rust-toolchain.toml, the only place) must exist: a typo or a version never released fails here, not in the release.
+  toolchain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pinned version exists and is the only one
+        run: python3 -I scripts/binary-check.py toolchain --online
   rust:
     runs-on: ubuntu-latest
     steps:
