@@ -12,12 +12,21 @@ audience = "generic"
 # suggestion reads. events.emit: the events below (record-session writes them).
 permissions = ["web.read", "web.change", "integration:media", "events.emit:pkg.media-hub.*", "fs.write:/var/lib/hs/media-hub"]
 
-# The poller and the poster trigger: one process that stays (docs/extensions-sdk.md "Events and snapshots"). The protocol has no timer, so the
-# service polls on its own clock. It listens to `imported` to draw a poster.
+# The poller and the poster trigger: one process that stays (docs/extensions-sdk.md "Events and snapshots"), a Rust program (src/, built by
+# scripts/rust-build.sh). The protocol has no timer, so the service polls on its own clock. It listens to `imported` to draw a poster. It counts a
+# playback itself: a rollup and an emit of session-completed through the protocol (the rollup kind is that metric event kind).
 [service]
-exec = "@/media-svc.py"
+exec = "@/bin/media-svc"
 subscribe = ["pkg.media-hub.imported"]
 health_interval = 30
+
+# The program of the service. Not built yet: no sha256 and no file here; the release preparation builds it (scripts/rust-build.sh --install) and
+# commits program and hash. Until then `repo-check --release` and `hs pkg install` refuse this package (binary.unbuilt).
+[[binary]]
+path = "bin/media-svc"
+sha256 = ""
+bin = "media-svc"
+target = "x86_64-unknown-linux-musl"
 
 # What happened, as events (docs/events.md "Package events"). The class says how long the raw row is kept; the history lives in the monthly rollup.
 [[events]]

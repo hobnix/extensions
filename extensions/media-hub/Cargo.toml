@@ -1,0 +1,26 @@
+# The poller service of the media hub (hobnix/extensions#27), a static musl program: `[[binary]]` of package.toml, built by scripts/rust-build.sh.
+# Copied from examples/rust-hello: the SDK is not published and is pinned by commit; raise `rev` together with Cargo.lock
+# (`cargo update -p hobnix-ext-sdk`) when the core changes the protocol.
+[package]
+name = "media-svc"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "media-svc"
+path = "src/main.rs"
+
+[dependencies]
+# This commit has the plain-http client, credential_for / Integration::credential and the rollup message (core #1133, #1140).
+hobnix-ext-sdk = { git = "https://github.com/hobnix/core", rev = "3257b2204c56f059ff84202b83a39898015f879c" }
+serde_json = "1"
+
+# Own workspace root: the crate is built by itself, never as part of another folder's workspace.
+[workspace]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
