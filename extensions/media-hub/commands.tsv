@@ -7,3 +7,6 @@ user	ext media-hub record-import	@/media-hub.sh	record-import {rest}	note an imp
 sys	sys ext media-hub apps	@/media-hub.sh	--apps	media apps as package, address, key (ok|locked|missing|-), kind; - = empty	-
 sys	sys ext media-hub stats	@/media-hub.sh	--stats	one row: plays this month, minutes this month, plays in all, minutes in all, media apps found	-
 sys	sys ext media-hub months	@/media-hub.sh	--months	one row per month, oldest first, the last 24: month, minutes, plays (all users added)	-
+sys	sys ext media-hub suggestions	@/media-suggest.sh	list	storage suggestions: watched media that could move from the smallest to the largest pool, as name, from, to, path, days since watched; - = empty	-
+sys	sys ext media-hub plan <action>	@/media-suggest.sh	plan {1} {rest}	what moving watched media would do, as data (the file manager's plan; never asks; exit 0 ok, 1 refused)	-
+sys	sys ext media-hub start <action>	@/media-suggest.sh	start {1} {rest}	start the move as a file-manager job: hs sys ext media-hub start move-watched <name> <from> <to> <path>; only after the plan was confirmed	-

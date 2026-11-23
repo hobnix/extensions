@@ -30,7 +30,7 @@ version = "0.1.0"
 kind = "extension"
 path = "extensions/media-hub"
 title = "Media hub: watch statistics from the media apps"
-requires_core = ">=7"
+requires_core = ">=10"
 audience = "generic"
 
 [package.passthrough]

@@ -1,0 +1,16 @@
+{
+  "MediaContainer": {
+    "size": 1,
+    "Metadata": [
+      {
+        "sessionKey": "7",
+        "title": "Arrival",
+        "type": "movie",
+        "viewOffset": 600000,
+        "User": { "id": "1", "title": "dora" },
+        "Session": { "id": "abc123" },
+        "Media": [ { "Part": [ { "file": "/data/movies/Arrival (2016)/Arrival.mkv" } ] } ]
+      }
+    ]
+  }
+}

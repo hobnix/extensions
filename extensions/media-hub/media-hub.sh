@@ -4,8 +4,8 @@
 # args: apps | stats | record-session <user> <minutes> [<title>] | record-import imported|upgraded <title> [<app>] | --apps | --stats | --months
 # First slice of the media hub (hobnix/core#928). It keeps no live state of its own: the apps come from `hs pkg integrations media`, the history is
 # the monthly rollup kind media-watch in state.db (n = plays, sum = minutes; one row per month and user, never pruned, docs/extensions-sdk.md), and
-# the milestones are package events (pkg.media-hub.*, retention classes in package.toml). Nothing polls an app yet: a poller or a webhook of
-# Jellyfin calls record-session; that comes next.
+# the milestones are package events (pkg.media-hub.*, retention classes in package.toml). The service media-svc.py polls the media apps and calls
+# record-session when a playback ends (adapters: adapter_*.py, UNVERIFIED); media-suggest.sh holds the storage suggestion.
 # --apps = package TAB address TAB key state (ok|locked|missing|-) TAB kind (- when the app names none), one row per media app, no header.
 # --stats = one row: plays this month, minutes this month, plays in all, minutes in all, media apps found.
 # --months = month TAB minutes TAB plays, oldest first, the last 24 months, all users added; nothing when nothing is recorded.
