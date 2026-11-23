@@ -38,7 +38,7 @@ kind = "tsv"
 ttl = 30
 role = "viewer"
 
-# the token of a wake link is a secret: only app-manager and admin read the list of links
+# the list of wake links (no token in it: only a hash is stored); app-manager and admin
 [[web.reads]]
 words = "links"
 kind = "tsv"
@@ -192,9 +192,8 @@ empty = "No wake link yet. Use Wake link on a lobby."
 columns = [
   { key = "id", label = "Id", kind = "mono" },
   { key = "lobby", label = "Lobby", col = 1, icon = "gamepad" },
-  { key = "token", label = "Token", col = 2, kind = "mono" },
-  { key = "expires", label = "Expires (UTC)", col = 3, kind = "mono" },
-  { key = "state", label = "State", col = 4, kind = "dot", map = { active = ["ok", "active"], expired = ["off", "expired"] } },
+  { key = "expires", label = "Expires (UTC)", col = 2, kind = "mono" },
+  { key = "state", label = "State", col = 3, kind = "dot", map = { active = ["ok", "active"], expired = ["off", "expired"] } },
 ]
 rowActions = [
   { label = "Revoke", icon = "x", iconOnly = true, danger = true, title = "Stop link {id} from working", plan = ["ext/game-lobbies", "{id}", "revoke"], planTitle = "Revoke wake link {id}" },

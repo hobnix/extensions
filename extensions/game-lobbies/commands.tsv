@@ -9,6 +9,6 @@ sys	sys ext game-lobbies list	@/lobby.sh	--list	lobbies as name, instance, port,
 sys	sys ext game-lobbies state	@/lobby.sh	--state	lobbies as name, instance, state (running, stopped, missing), players (established TCP connections to the port, - when not running), port	-
 sys	sys ext game-lobbies summary	@/lobby.sh	--summary	one row for the card: level (ok, info, off), line ("2 players in 1 of 3 lobbies")	-
 sys	sys ext game-lobbies worlds	@/lobby.sh	--worlds	snapshots of every lobby instance as lobby, snapshot, created (YYYY-MM-DD HH:MM), newest first	-
-sys	sys ext game-lobbies links	@/lobby.sh	--links	wake links as id, lobby, token, expires (YYYY-MM-DD HH:MM), state (active, expired); the token is a secret: the read needs the role app-manager	-
+sys	sys ext game-lobbies links	@/lobby.sh	--links	wake links as id, lobby, expires (YYYY-MM-DD HH:MM), state (active, expired); no token (only its sha256 is stored); the read needs the role app-manager	-
 sys	sys ext game-lobbies plan <name> <action>	@/lobby-change.sh	plan {1} {2} {rest}	what restoring a snapshot, making or revoking a wake link, saving or forgetting a lobby would do, as data (exit 0 ok, 1 refused, 2 something missing)	-
 sys	sys ext game-lobbies start <name> <action>	@/lobby-change.sh	start {1} {2} {rest}	do it: <name> restore <snapshot> | link [--hours N] | add --instance <i> --port <p> [--game <g>] | remove; <id> revoke; answers status done	-

@@ -3,14 +3,15 @@
 # help.de: Spiel-Lobbys auf Incus-Instanzen: anzeigen, hinzufügen, entfernen, Aufweck-Links mit Ablauf
 # args: list | --list | --state | --summary | --worlds | --links | add <name> <instance> <port> [<game>] | remove <name> | link <name> [--hours N] | link list | link revoke <id> | redeem
 # A lobby is a name for an Incus instance that runs a game server (name, instance, port, game) in /var/lib/hs/game-lobbies/lobbies. Wake links are
-# lines of /var/lib/hs/game-lobbies/links (id, lobby, token, expires as epoch, created as epoch; the file is 0600).
+# lines of /var/lib/hs/game-lobbies/links (id, lobby, sha256 of the token as hex, expires as epoch, created as epoch; the file is 0600). The token itself is
+# shown once when the link is made and never stored or logged.
 # Machine-readable (hs sys ext game-lobbies ...), no header, nothing for no row, an empty field is -:
 #   --list     name TAB instance TAB port TAB game
 #   --state    name TAB instance TAB state (running|stopped|missing) TAB players TAB port; players = established TCP connections to the port counted
 #              inside the instance (- when it is not running; a game that talks UDP only shows 0)
 #   --summary  level TAB line for the card: off (no lobby), info (none running), ok (players and running lobbies)
 #   --worlds   lobby TAB snapshot TAB created (YYYY-MM-DD HH:MM), newest first
-#   --links    id TAB lobby TAB token TAB expires (YYYY-MM-DD HH:MM) TAB state (active|expired)
+#   --links    id TAB lobby TAB expires (YYYY-MM-DD HH:MM) TAB state (active|expired)
 # redeem reads one token line from stdin (never an argument) and starts the instance of its lobby while the link has not expired.
 # Test knobs: HS_STATE_DIR (the folder with game-lobbies/), HS_INCUS (stand-in for incus), HS_NOW (epoch seconds).
 set -euo pipefail
@@ -96,10 +97,10 @@ case "$cmd" in
 --links)
   [ -s "$links" ] || exit 0
   ts=$(now)
-  while IFS=$'\t' read -r id lob tok exp _; do
+  while IFS=$'\t' read -r id lob _ exp _; do
     [ -n "$id" ] || continue
     st=active; [ "$exp" -gt "$ts" ] || st=expired
-    printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$lob" "$tok" "$(fmt_time "$exp")" "$st"
+    printf '%s\t%s\t%s\t%s\n' "$id" "$lob" "$(fmt_time "$exp")" "$st"
   done < "$links" ;;
 
 list)
@@ -134,7 +135,7 @@ link)
   list)
     if [ ! -s "$links" ]; then note "No wake link yet."; exit 0; fi
     { thead 'Id' 'Lobby' 'Expires' 'State'
-      bash "$0" --links | awk -F'\t' '{ printf "%s\t%s\t%s\t%s\n", $1, $2, $4, $5 }'; } | table ;;
+      bash "$0" --links; } | table ;;
   revoke)
     [ $# -eq 2 ] && [[ "$2" =~ ^[0-9a-f]{8}$ ]] || usage
     grep -q "^$2	" "$links" 2>/dev/null || fail_fix "$(t "No wake link '%s'" "$2")" "hs ext game-lobbies link list"
@@ -153,19 +154,36 @@ link)
     mkdir -p "$state"
     id=$(rand_hex 4); tok=$(rand_hex 16); ts=$(now)
     exp=$((ts + 10#$hours * 3600))
-    printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$name" "$tok" "$exp" "$ts" >> "$links"
+    printf '%s\t%s\t%s\t%s\t%s\n' "$id" "$name" "$(printf '%s' "$tok" | sha256sum | cut -d' ' -f1)" "$exp" "$ts" >> "$links"
     ok "$(t "Wake link %s for '%s' made, valid until %s UTC" "$id" "$name" "$(fmt_time "$exp")")"
     kv "token" "$tok"
-    note "The token is a secret: whoever has it can start this lobby until it expires. Revoke it with: hs ext game-lobbies link revoke $id" ;;
+    note "The token is shown only now and cannot be shown again; whoever has it can start this lobby until it expires. Revoke it with: hs ext game-lobbies link revoke $id" ;;
   esac ;;
 
 redeem)
   IFS= read -r tok || tok=""
   [[ "$tok" =~ ^[0-9a-f]{32}$ ]] || fail "This wake link is not valid."
-  line=$(printf '%s\n' "$tok" | awk -F'\t' 'NR == FNR { t = $0; next } $3 == t { print; exit }' - "$links" 2>/dev/null || true)
-  [ -n "$line" ] || fail "This wake link is not valid."
-  IFS=$'\t' read -r _ lob _ exp _ <<<"$line"
-  [ "$exp" -gt "$(now)" ] || fail "This wake link has expired."
+  # only the sha256 of the token is stored; compared in constant time (hmac.compare_digest): exit 0 = match (prints the lobby), 3 = expired, 1 = none
+  rc=0; lob=$(printf '%s\n' "$tok" | python3 -I -c '
+import hashlib, hmac, sys
+want = hashlib.sha256(sys.stdin.readline().strip().encode()).hexdigest()
+now = int(sys.argv[2])
+hit = None
+try:
+    rows = [l.rstrip("\n").split("\t") for l in open(sys.argv[1])]
+except OSError:
+    rows = []
+for r in rows:
+    if len(r) >= 4 and hmac.compare_digest(r[2], want):   # no early exit: every row is compared
+        hit = r
+if hit is None:
+    sys.exit(1)
+if int(hit[3]) <= now:
+    sys.exit(3)
+print(hit[1])
+' "$links" "$(now)") || rc=$?
+  [ "$rc" -ne 3 ] || fail "This wake link has expired."
+  [ "$rc" -eq 0 ] || fail "This wake link is not valid."
   lline=$(find_lobby "$lob")
   [ -n "$lline" ] || fail "This wake link is not valid."
   IFS=$'\t' read -r _ inst _ <<<"$lline"
