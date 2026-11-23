@@ -53,9 +53,9 @@ check_out "a failing poster is logged, not fatal" "poster not drawn: no such ext
 check_eq "and the event is still acknowledged" 2 "$(cat "$WORK/cur")"
 
 echo "-- service: the poller reports why it does not poll"
-printf 'radarr\tmedia\trecipe\thttp://10.0.0.5:7878\tok\tkind=movies\njellyfin\tmedia\trecipe\thttp://10.0.0.6:8096\tok\t-\n' > "$WORK/int"
+printf 'radarr\tmedia\trecipe\thttp://10.0.0.5:7878\tok\tkind=movies\tX-Api-Key\njellyfin\tmedia\trecipe\thttp://10.0.0.6:8096\tok\t-\tX-Emby-Token\n' > "$WORK/int"
 HS_MEDIA_INTEGRATIONS=$(wp "$WORK/int") HS_MEDIA_POLL_SECONDS=1 run_svc
-check_out "radarr is first: no adapter, said once in the log" "which the hub has no adapter for" printf '%s' "$out"
+check_out "radarr has no adapter, jellyfin is polled, said once in the log" "polling jellyfin .not polled: radarr has no adapter" printf '%s' "$out"
 
 echo "-- storage suggestion"
 S=$EXT/media-suggest.sh

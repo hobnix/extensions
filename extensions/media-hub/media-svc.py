@@ -24,6 +24,16 @@ scripts = os.environ.get("HS_SCRIPTS") or os.path.join(here, "..", "..", "script
 state_dir = os.environ.get("HS_MEDIA_STATE_DIR", "/var/lib/hs/media-hub")
 
 
+def media_credential():
+    """The platform's key of the integration media (a systemd credential, ext_sdk.credential); None outside a confined service."""
+    try:
+        sys.path.insert(0, os.path.join(scripts, "lib"))
+        import ext_sdk
+        return ext_sdk.credential("media")
+    except Exception:
+        return None
+
+
 def say(**m):
     m.setdefault("v", 1)
     sys.stdout.write(json.dumps(m) + "\n")
@@ -75,7 +85,9 @@ def main():
     init = json.loads(sys.stdin.readline())
     interval = float(os.environ.get("HS_MEDIA_POLL_SECONDS", "30"))
     beat = max(0.5, min(5.0, float(init.get("health_interval", 30)) / 3))
-    poller = media_poll.Poller(media_poll.http_fetch_factory(media_poll.key_from_core(scripts)), record, state_dir, time.time)
+    owner = [None]           # the package the platform credential belongs to, set from the listing of every round
+    get_key = media_poll.key_by_provider(lambda: owner[0], media_credential, media_poll.key_from_core(scripts))
+    poller = media_poll.Poller(media_poll.http_fetch_factory(get_key), record, state_dir, time.time)
     inbox = queue.Queue()
     threading.Thread(target=lambda: [inbox.put(l) for l in sys.stdin] + [inbox.put(None)], daemon=True).start()
     say(type="ready")
@@ -103,10 +115,12 @@ def main():
         if interval > 0 and now - last_poll >= interval:
             last_poll = now
             try:
-                apps, why = media_poll.parse_apps(integrations_text())
+                text = integrations_text()
+                owner[0] = media_poll.credential_owner(text)
+                apps, why = media_poll.parse_apps(text)
                 if why != note:
                     note = why
-                    log("info" if not apps else "warn", "poller: " + (why or "polling %s" % apps[0][0]))
+                    log("info" if not why else "warn", "poller: " + ("polling %s" % ", ".join(a[0] for a in apps) if apps else "") + (" (not polled: %s)" % why if apps and why else why))
                 playing = poller.poll(apps)
                 if playing != last_playing:
                     last_playing = playing

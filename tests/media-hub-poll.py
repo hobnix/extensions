@@ -34,13 +34,48 @@ check("plex: one session", px, [{"id": "abc123", "user": "dora", "title": "Arriv
 check("plex: a broken answer is an empty list", (adapter_plex.parse("{}"), adapter_plex.parse("nope")), ([], []))
 check("an app without an adapter is unknown", media_poll.load_adapter("radarr"), None)
 
-# the app that can be polled: the first row with a key (platform gap, NOTES.md)
-rows = "jellyfin\tmedia\trecipe\thttp://10.0.0.6:8096\tok\t-\nradarr\tmedia\trecipe\thttp://10.0.0.5:7878\tok\tkind=movies\n"
-check("the first keyed app has an adapter: polled", media_poll.parse_apps(rows), ([("jellyfin", "http://10.0.0.6:8096", "-")], ""))
-apps, why = media_poll.parse_apps("radarr\tmedia\trecipe\thttp://x\tok\t-\n" + rows)
-check("radarr first: nothing polled, with a reason", (apps, "radarr" in why), ([], True))
-check("a locked key: nothing polled", media_poll.parse_apps("jellyfin\tmedia\trecipe\thttp://x\tlocked\t-\n")[0], [])
-check("no keyed app", media_poll.parse_apps("jellyfin\tmedia\trecipe\thttp://x\t-\t-\n")[0], [])
+# the providers: every row with a key and an adapter is polled, with the header of its row
+J = "jellyfin\tmedia\trecipe\thttp://10.0.0.6:8096\tok\t-\tX-Emby-Token\n"
+R = "radarr\tmedia\trecipe\thttp://10.0.0.5:7878\tok\tkind=movies\tX-Api-Key\n"
+check("jellyfin and radarr: only jellyfin has an adapter, radarr is named", media_poll.parse_apps(J + R), ([("jellyfin", "http://10.0.0.6:8096", "-", "X-Emby-Token")], "radarr has no adapter"))
+apps, why = media_poll.parse_apps(R + J)
+check("radarr first: jellyfin is still polled", [a[0] for a in apps], ["jellyfin"])
+check("a row without key_header gets the header of the adapter", media_poll.parse_apps("jellyfin\tmedia\trecipe\thttp://x\tok\t-\t-\n")[0][0][3], "X-Emby-Token")
+check("a bad key_header is not used", media_poll.parse_apps("jellyfin\tmedia\trecipe\thttp://x\tok\t-\tbad header\n")[0][0][3], "X-Emby-Token")
+check("a row of an older core without the column still works", media_poll.parse_apps("jellyfin\tmedia\trecipe\thttp://x\tok\t-\n")[0][0][3], "X-Emby-Token")
+check("a locked key: nothing polled", media_poll.parse_apps("jellyfin\tmedia\trecipe\thttp://x\tlocked\t-\t-\n")[0], [])
+check("no keyed app", media_poll.parse_apps("jellyfin\tmedia\trecipe\thttp://x\t-\t-\t-\n"), ([], "no media app with a key found"))
+check("the credential belongs to the first row with a key", (media_poll.credential_owner(R + J), media_poll.credential_owner("x\tmedia\trecipe\t-\t-\t-\t-\n" + J), media_poll.credential_owner("")), ("radarr", "jellyfin", None))
+
+# no key crosses: the platform credential only for its owner, the other provider's key only through its own ask
+asked = []
+def ask(pkg):
+    asked.append(pkg)
+    return {"radarr": "RADARR-KEY"}.get(pkg, "")
+gk = media_poll.key_by_provider(lambda: "jellyfin", lambda: "JELLYFIN-KEY", ask)
+check("jellyfin gets the credential, radarr never does", (gk("jellyfin"), gk("radarr"), asked), ("JELLYFIN-KEY", "RADARR-KEY", ["radarr"]))
+gk = media_poll.key_by_provider(lambda: "radarr", lambda: "RADARR-CRED", ask)
+check("the credential of radarr is not given to jellyfin", (gk("radarr"), gk("jellyfin")), ("RADARR-CRED", ""))
+gk = media_poll.key_by_provider(lambda: "jellyfin", lambda: None, lambda p: "")
+check("no credential and no helper: no key", gk("jellyfin"), "")
+
+# the HTTP call: each key goes to its own address in its own header (urlopen is faked)
+sent = []
+class Resp:
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def read(self, n): return b"[]"
+real = media_poll.urllib.request.urlopen
+media_poll.urllib.request.urlopen = lambda req, timeout=0: sent.append((req.full_url, dict((k.lower(), v) for k, v in req.header_items()))) or Resp()
+keys = {"jellyfin": "JK", "plex": "PK"}
+fetch = media_poll.http_fetch_factory(lambda pkg: keys.get(pkg, ""))
+fetch("jellyfin", "http://10.0.0.6:8096", "-", "X-Emby-Token")
+fetch("plex", "http://10.0.0.7:32400", "-", "X-Plex-Token")
+check("jellyfin key to the jellyfin address in the row's header", sent[0], ("http://10.0.0.6:8096/Sessions", {"x-emby-token": "JK", "accept": "application/json"}))
+check("plex key to the plex address in its header, no other key in it", sent[1], ("http://10.0.0.7:32400/status/sessions", {"x-plex-token": "PK", "accept": "application/json"}))
+keys.clear()
+check("no key: no call", (fetch("jellyfin", "http://x", "-", "X-Emby-Token"), len(sent)), (None, 2))
+media_poll.urllib.request.urlopen = real
 
 # track: a playback counts when it is gone, at least a minute
 a = {"id": "1", "user": "anna", "title": "Dune", "path": "/m/Dune.mkv"}
@@ -60,8 +95,8 @@ check("user names are made safe", (media_poll.user_name("carl smith"), media_pol
 # the poller with a fake app and a fake recorder
 state = os.path.join(work, "state")
 calls, clock, answers = [], [10000], {}
-poller = media_poll.Poller(lambda pkg, url, ex: answers.get(pkg), lambda u, m, t: calls.append((u, m, t)) or True, state, lambda: clock[0])
-apps = [("jellyfin", "http://x", "-")]
+poller = media_poll.Poller(lambda pkg, url, ex, h: answers.get(pkg), lambda u, m, t: calls.append((u, m, t)) or True, state, lambda: clock[0])
+apps = [("jellyfin", "http://x", "-", "X-Emby-Token")]
 answers["jellyfin"] = read("jellyfin-sessions.json")
 now = poller.poll(apps)
 check("poll 1: two playing, nothing counted", (len(now), calls), (2, []))
