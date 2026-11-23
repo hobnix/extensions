@@ -1,0 +1,50 @@
+name: rust
+# Rust extensions ship a static musl program (CONTRIBUTING.md "Rust extensions", hobnix/extensions#26, hobnix/core#1129). This job builds every crate
+# (extensions/*/Cargo.toml and examples/*/Cargo.toml), builds each one twice and fails when the two programs differ, then checks the rules for
+# committed programs (scripts/binary-check.py). With no crate in the repository it ends in seconds.
+# Not part of the shared release workflow (hobnix/core#522): that one signs and tags; this one needs the crate sources of THIS repository.
+on:
+  push:
+  pull_request:
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Any Rust crate?
+        id: crates
+        run: |
+          n=$(ls extensions/*/Cargo.toml examples/*/Cargo.toml 2>/dev/null | wc -l)
+          echo "count=$n" >> "$GITHUB_OUTPUT"
+          echo "Rust crates: $n"
+      - name: Rules for committed programs (no build needed)
+        run: python3 -I scripts/binary-check.py check ${{ github.event_name == 'pull_request' && github.base_ref == 'main' && '--release' || '' }}
+      - name: Toolchain (pinned in rust-toolchain.toml) and musl
+        if: steps.crates.outputs.count != '0'
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq musl-tools
+          rustup show active-toolchain || rustup toolchain install
+          rustc --version && rustup target list --installed
+      - name: Cargo cache
+        if: steps.crates.outputs.count != '0'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: cargo-${{ runner.os }}-${{ hashFiles('rust-toolchain.toml', '**/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+      - name: Build twice and compare (reproducible)
+        if: steps.crates.outputs.count != '0'
+        run: bash scripts/rust-build.sh --out built
+      - name: Committed programs equal the build
+        if: steps.crates.outputs.count != '0'
+        run: python3 -I scripts/binary-check.py check --built built ${{ github.event_name == 'pull_request' && github.base_ref == 'main' && '--release' || '' }}
+      - name: Keep the build (what the release preparation commits)
+        if: steps.crates.outputs.count != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-programs
+          path: built
+          retention-days: 14
