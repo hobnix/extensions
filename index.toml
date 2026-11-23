@@ -17,6 +17,14 @@ title = "Game PCs (wake, list) and the Game streaming page"
 requires_core = ">=1"
 audience = "generic"
 
+[package.media-hub]
+version = "0.1.0"
+kind = "extension"
+path = "extensions/media-hub"
+title = "Media hub: watch statistics from the media apps"
+requires_core = ">=7"
+audience = "generic"
+
 [package.passthrough]
 version = "1.0.1"
 kind = "extension"

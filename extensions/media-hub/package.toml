@@ -1,0 +1,49 @@
+# Manifest of a package (docs/PLAN-packages.md). The rest of this extension is described by capability.toml beside it until the
+# packages move out of this repository.
+name = "media-hub"
+version = "0.1.0"
+kind = "extension"
+title = "Media hub: watch statistics from the media apps"
+title_de = "Medien-Hub: Statistik aus den Medien-Apps"
+requires_core = ">=7"
+audience = "generic"
+# integration:media = the right to ask for the API key of the media apps (hs pkg integrations media; docs/PLAN-packages.md "Integrations").
+# The first slice reads no key yet: it only lists the apps and counts what is recorded.
+permissions = ["web.read", "integration:media", "events.emit:pkg.media-hub.*"]
+
+# What happened, as events (docs/events.md "Package events"). The class says how long the raw row is kept; the history lives in the monthly rollup.
+[[events]]
+kind = "session-completed"
+level = "info"
+label = "Playback finished"
+icon = "play-circle"
+meaning = "someone finished watching something (subject: the user)"
+retention = "metric"
+payload = ["minutes", "title?"]
+
+[[events]]
+kind = "now-playing"
+level = "info"
+label = "Playing now"
+icon = "play"
+meaning = "a playback started (subject: the user); a status flash, only interesting now"
+retention = "ephemeral"
+payload = ["title?"]
+
+[[events]]
+kind = "imported"
+level = "info"
+label = "Media imported"
+icon = "download-simple"
+meaning = "a film or episode was imported into the library (subject: the app)"
+retention = "audit"
+payload = ["title", "app?"]
+
+[[events]]
+kind = "upgraded"
+level = "info"
+label = "Media upgraded"
+icon = "arrow-fat-up"
+meaning = "a file was replaced by a better version (subject: the app)"
+retention = "audit"
+payload = ["title", "app?"]

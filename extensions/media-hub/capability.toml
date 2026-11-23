@@ -1,0 +1,65 @@
+# Manifest of a capability (docs/PLAN-modular-core.md). See capabilities/metrics/capability.toml for the fields.
+name = "media-hub"
+title = "Media hub: watch statistics from the media apps"
+title_de = "Medien-Hub: Statistik aus den Medien-Apps"
+kind = "feature"
+requires = []
+provides = []
+needs = []
+notes = "NOTES.md"
+# An extension package (docs/PLAN-extensions.md): hs ext media-hub <command>, the rows are in commands.tsv.
+extension = true
+
+# Reads only in this slice (no change from the web). Each is a `sys ext media-hub ...` row of commands.tsv.
+[[web.reads]]
+words = "apps"
+kind = "tsv"
+ttl = 60
+
+[[web.reads]]
+words = "stats"
+kind = "tsv"
+ttl = 60
+
+[[web.reads]]
+words = "months"
+kind = "tsv"
+ttl = 60
+
+[web.page]
+title = "Media hub"
+icon = "film-strip"
+crumb = "Extensions"
+sub = "what is watched, from the monthly sums"
+
+[[web.page.blocks]]
+type = "stat"
+read = "stats"
+items = [
+  { label = "Plays this month", col = 0 },
+  { label = "Minutes this month", col = 1, unit = "min" },
+  { label = "Plays in all", col = 2 },
+  { label = "Minutes in all", col = 3, unit = "min" },
+  { label = "Media apps found", col = 4 },
+]
+
+[[web.page.blocks]]
+type = "chart"
+title = "Minutes watched per month"
+read = "months"
+value = 1
+unit = "min"
+empty = "Nothing recorded yet."
+
+[[web.page.blocks]]
+type = "table"
+title = "Media apps"
+read = "apps"
+key = "package"
+empty = "No media app found. Install Radarr, Sonarr, SABnzbd or Jellyfin."
+columns = [
+  { key = "package", label = "App", icon = "film-strip" },
+  { key = "api", label = "Address", col = 1, kind = "mono" },
+  { key = "key", label = "Key", col = 2, kind = "dot", map = { ok = ["ok", "key found"], locked = ["warn", "key locked"], missing = ["off", "key file missing"] } },
+  { key = "kind", label = "Kind", col = 3, optional = true },
+]
