@@ -1,0 +1,6 @@
+# The one Rust toolchain every extension crate is built with (scripts/rust-build.sh, CI job rust). Pinned to an exact version because the
+# binary must be byte-identical on every build: raise it in its own pull request, then rebuild the binaries of the release.
+[toolchain]
+channel = "1.94.1"
+profile = "minimal"
+targets = ["x86_64-unknown-linux-musl"]

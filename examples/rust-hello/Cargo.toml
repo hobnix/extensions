@@ -1,0 +1,27 @@
+# EXAMPLE, not a package: this folder is not under extensions/ and not in index.toml, so `hs pkg` never offers it. It exists so the CI job
+# `rust` (scripts/rust-build.sh) has a crate to build and prove reproducible until the first real Rust extension lands.
+# Copy it into extensions/<name>/ to start one (CONTRIBUTING.md "Rust extensions").
+[package]
+name = "rust-hello"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "rust-hello"
+path = "src/main.rs"
+
+[dependencies]
+# The SDK is not published (publish = false in the core's workspace) and the core has no release tag that contains it yet: pinned by commit.
+# Raise `rev` together with Cargo.lock (`cargo update -p hobnix-ext-sdk`) when the core changes the protocol. Move to `tag = "vX.Y.Z"` once a core tag has it.
+hobnix-ext-sdk = { git = "https://github.com/hobnix/core", rev = "d50406c08aff9db9f95f5ce3a61f99262475e65a" }
+serde_json = "1"
+
+# Own workspace root: the crate is built by itself, never as part of another folder's workspace.
+[workspace]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
