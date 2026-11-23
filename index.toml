@@ -9,6 +9,14 @@ title = "Self-service password change for domain users"
 requires_core = ">=4"
 audience = "generic"
 
+[package.game-lobbies]
+version = "0.1.0"
+kind = "extension"
+path = "extensions/game-lobbies"
+title = "Game lobbies: active lobbies, worlds and snapshots, wake link"
+requires_core = ">=1"
+audience = "generic"
+
 [package.games]
 version = "1.0.1"
 kind = "extension"
