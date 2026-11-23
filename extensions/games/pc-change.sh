@@ -9,6 +9,8 @@
 #   add     save the PC (pc.sh add <name> <mac> [<ip>]); a name that is saved already gets the new MAC and address. Without --mac the
 #           plan answers status needs, needs<TAB>mac (exit 2).
 #   remove  forget the saved PC (pc.sh remove <name>). Nothing else is touched; it can be added again. Not red: one line of a text file.
+#   wake-all  (no name) wake every saved PC, one packet each; the action of the page header (capability.toml [[web.actions]]). Plan says
+#           status refused when no PC is saved.
 # plan: exit 0 = allowed, 1 = refused, 2 = something is missing. Output: status ok|refused|needs, reason<TAB><text>, needs<TAB><what>,
 #   heading|step|note|warn|command<TAB><line>, long<TAB>no.
 # start: the same checks, then status<TAB>done (or refused).
@@ -25,6 +27,25 @@ refuse() { printf 'status\trefused\nreason\t%s\n' "$1"; exit 1; }
 
 verb=${1:-}; name=${2:-}; action=${3:-}
 case "$verb" in plan|start) ;; *) echo "usage: pc-change.sh plan|start <name> wake|remove | add --mac <mac> [--ip <ip>]" >&2; exit 1 ;; esac
+if [ "$name" = wake-all ] && [ -z "$action" ]; then   # wake every saved PC (no PC is named by it)
+  [ -s "$file" ] || refuse "No PC is saved."
+  if [ "$verb" = plan ]; then
+    printf 'status	ok
+heading	wake all game PCs
+'
+    while IFS=$'	' read -r n m _; do printf 'step	send the Wake-on-LAN packet to %s (%s)
+' "$n" "$m"; done < "$file"
+    printf 'note	The PC needs Wake-on-LAN switched on in its BIOS and network card.
+command	hs ext games wake <each saved PC>
+long	no
+'
+    exit 0
+  fi
+  while IFS=$'	' read -r n _; do bash "$pc" wake "$n" >/dev/null 2>&1 || refuse "could not wake $n"; done < "$file"
+  printf 'status	done
+'
+  exit 0
+fi
 [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,40}$ ]] || refuse "invalid PC name"
 case "$action" in wake|add|remove) ;; *) refuse "unknown action (wake, add or remove)" ;; esac
 shift 3 || true

@@ -8,5 +8,8 @@ user	ext games remove	@/pc.sh	remove {rest}	forget a saved game PC: hs ext games
 user	ext games wake	@/pc.sh	wake {rest}	switch a game PC on (Wake-on-LAN), --wait until its Sunshine answers: hs ext games wake <name> [--wait]	einen Spiele-PC einschalten (Wake-on-LAN), mit --wait bis sein Sunshine antwortet: hs ext games wake <Name> [--wait]	topic:network,changes
 sys	sys ext games list	@/pc.sh	--list	game PCs as name, mac, address (address - when none)	-
 sys	sys ext games state	@/pc.sh	--state	game PCs as name, address, state (up = Sunshine answers on port 47989, down, unknown = no address); a 1 s try each	-
+sys	sys ext games checks	@/pc.sh	--checks	the health check of the game PCs as level, message (ok when Sunshine answers, warn when it does not; a PC without an address has no row); the slot [[health]] of capability.toml	-
 sys	sys ext games plan <name> <action>	@/pc-change.sh	plan {1} {2} {rest}	what waking, saving or forgetting a game PC would do, as data: status, plan lines (never asks; exit 0 ok, 1 refused, 2 = the MAC is missing)	-
 sys	sys ext games start <name> <action>	@/pc-change.sh	start {1} {2} {rest}	do it (hs sys ext games start <name> wake | add --mac <mac> [--ip <ip>] | remove), answers status done	-
+sys	sys ext games plan wake-all	@/pc-change.sh	plan wake-all	what waking every saved game PC would do, as data (the action Wake all PCs); status refused when no PC is saved	-
+sys	sys ext games start wake-all	@/pc-change.sh	start wake-all	wake every saved game PC (one packet each), answers status done	-

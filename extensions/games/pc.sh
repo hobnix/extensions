@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # help: game PCs at home that stream with Sunshine: list, add, remove, wake (Wake-on-LAN)
 # help.de: Spiele-PCs zu Hause, die mit Sunshine streamen: anzeigen, hinzufügen, entfernen, aufwecken (Wake-on-LAN)
-# args: list | --list | --state | add <name> <mac> [<ip>] | remove <name> | wake <name> [--wait]
+# args: list | --list | --state | --checks | add <name> <mac> [<ip>] | remove <name> | wake <name> [--wait]
 # Remembers a PC (name, MAC, optional address) in /var/lib/hs/games/pcs (an older /var/lib/hs/pcs is moved there at the first call). `wake` sends the magic packet from the server (the
 # server sits in the network the PC is in, a TV in another VLAN cannot wake it); with --wait it then waits (up to 3
 # minutes) until the PC's Sunshine answers on port 47989, which needs the address. The PC itself needs Wake-on-LAN
@@ -11,6 +11,9 @@
 # --state (hs sys ext games state) = name TAB address TAB state, one row per PC, no header: state up when Sunshine answers on port 47989 at the address
 # (a 1 s try each), down when it does not (the PC is off or asleep, or Sunshine is not running: the two cannot be told apart), unknown when no
 # address is saved. Wakes nothing. HS_PC_PROBE (called with address and port, exit 0 = answers) stands in for the try.
+# --checks (hs sys ext games checks, the [[health]] check of capability.toml) = level TAB message, one row per PC with an address: ok when Sunshine
+# answers, info when it does not. Off, asleep and "on but Sunshine not running" cannot be told apart (see --state), so a PC that does not answer
+# is only info (never warn: a switched-off PC is normal). A PC without an address has no row. Wakes nothing.
 # HS_STATE_DIR points tests at another folder (the file is <it>/games/pcs); HS_WOL_CMD (called with the MAC) stands in for the packet, HS_PC_WAIT_SECONDS
 # for the 180 s of --wait, HS_PC_PORT for the port 47989 it waits for.
 set -euo pipefail
@@ -54,6 +57,16 @@ case "$cmd" in
     printf '%s	%s	%s
 ' "$n" "${ip:--}" "$st"
   done < "$file" ;;
+
+--checks)
+  bash "$0" --state | while IFS=$'	' read -r n _ st; do
+    case "$st" in
+      up)   printf 'ok	Game PC %s answers
+' "$n" ;;
+      down) printf 'info	Game PC %s does not answer (off, asleep, or Sunshine not running)
+' "$n" ;;
+    esac
+  done ;;
 
 list)
   if [ ! -s "$file" ]; then note "No PC saved yet."; next_step "hs ext games add <name> <mac> [<ip>]"; exit 0; fi
