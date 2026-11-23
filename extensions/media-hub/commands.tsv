@@ -1,0 +1,9 @@
+# Commands of the extension package "media-hub" (docs/PLAN-extensions.md). Same columns as scripts/lib/registry.tsv:
+# kind	path	script	args	help	help.de	flags
+user	ext media-hub apps	@/media-hub.sh	apps	the media apps found through the integration media (package, address, key, kind)	die Medien-Apps, die über die Integration media gefunden wurden (Paket, Adresse, Schlüssel, Art)	topic:apps,reads
+user	ext media-hub stats	@/media-hub.sh	stats	watch statistics from the monthly rollups: this month and all time	Statistik aus den Monatssummen: dieser Monat und insgesamt	topic:apps,reads
+user	ext media-hub record-session	@/media-hub.sh	record-session {rest}	count a finished playback: hs ext media-hub record-session <user> <minutes> [<title>]	eine beendete Wiedergabe zählen: hs ext media-hub record-session <Nutzer> <Minuten> [<Titel>]	topic:apps,changes
+user	ext media-hub record-import	@/media-hub.sh	record-import {rest}	note an import or an upgrade in the event log: hs ext media-hub record-import imported|upgraded <title> [<app>]	einen Import oder ein Upgrade im Ereignisprotokoll vermerken: hs ext media-hub record-import imported|upgraded <Titel> [<App>]	topic:apps,changes
+sys	sys ext media-hub apps	@/media-hub.sh	--apps	media apps as package, address, key (ok|locked|missing|-), kind; - = empty	-
+sys	sys ext media-hub stats	@/media-hub.sh	--stats	one row: plays this month, minutes this month, plays in all, minutes in all, media apps found	-
+sys	sys ext media-hub months	@/media-hub.sh	--months	one row per month, oldest first, the last 24: month, minutes, plays (all users added)	-
