@@ -12,12 +12,13 @@ audience = "generic"
 # suggestion reads. events.emit: the events below (record-session writes them).
 permissions = ["web.read", "web.change", "integration:media", "events.emit:pkg.media-hub.*", "fs.write:/var/lib/hs/media-hub"]
 
-# The poller and the poster trigger: one process that stays (docs/extensions-sdk.md "Events and snapshots"), a Rust program (src/, built by
-# scripts/rust-build.sh). The protocol has no timer, so the service polls on its own clock. It listens to `imported` to draw a poster. It counts a
-# playback itself: a rollup and an emit of session-completed through the protocol (the rollup kind is that metric event kind).
+# The poller: one process that stays (docs/extensions-sdk.md "Events and snapshots"), a Rust program (src/, built by scripts/rust-build.sh). The
+# protocol has no timer, so the service polls on its own clock. It counts a playback itself: a rollup and an emit of session-completed through the
+# protocol (the rollup kind is that metric event kind). It subscribes to nothing: the poster of an `imported` event is drawn by the package `posters`
+# (its service listens to pkg.media-hub.imported), so this service never runs a host command.
 [service]
 exec = "@/bin/media-svc"
-subscribe = ["pkg.media-hub.imported"]
+subscribe = []
 health_interval = 30
 
 # The program of the service. Not built yet: no sha256 and no file here; the release preparation builds it (scripts/rust-build.sh --install) and
