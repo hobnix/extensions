@@ -26,14 +26,14 @@ Second slice (needs core API level 10 for the `[service]` table):
   only when a package named `plex` declares `[integrations.media]`.
 - **Plain http only:** the SDK client has no TLS. A provider whose `api_url` starts with `https://` is named in the log once (`TlsUnsupported`) and not
   polled; put a local TLS-terminating proxy in front of it or use the plain http address of the app on the same host.
-- **Keys by provider:** the listing (`hs sys pkg integrations media`, run by the service) names each provider; its key is the systemd credential
+- **Keys by provider:** the listing (`hs sys pkg integrations media`, run by the service: still an `hs` call, to be replaced by `init.integrations` when the core has it (hobnix/core#1129 step 3)) names each provider; its key is the systemd credential
   `integration-media-<provider>` read with the SDK (`credential_for`), never from argv or the environment, never logged, and sent only to the address of
   its own provider in the header of its row (a row without `key_header` gets the header of the adapter: Jellyfin `X-Emby-Token`, Plex `X-Plex-Token`). A
   provider without an adapter (Radarr, Sonarr, SABnzbd) is skipped and named once in the log; one without a credential is named once and not asked. The
   old known gap (one credential for all providers) is closed by the per-provider credentials of the core.
-- **Poster:** an `imported` event (`pkg.media-hub.imported`, written by `record-import`; nothing writes it by itself yet) makes the service run
-  `hs sys ext posters start generate --eyebrow "New in the library" --title <title> --seed <crc of the title>`. The same title draws the same file, so an event
-  delivered twice does no harm. If `posters` is off, the failure is logged and the event is still acknowledged.
+- **Poster:** an `imported` event (`pkg.media-hub.imported`, written by `record-import`; nothing writes it by itself yet) is handled by the package `posters`,
+  not by this service: its service `poster-svc.py` subscribes to the event and draws the poster itself. media-svc runs no host command for it (inside the
+  confined unit `hs` cannot see the package registry or the job store). If `posters` is off, nothing is drawn and nothing fails.
 - **Storage suggestion:** the service keeps `/var/lib/hs/media-hub/watched.tsv` (the file name and folder an app reported for each finished playback, newest 200).
   `hs sys ext media-hub suggestions` lists what was watched 30 or more days ago as a move from the smallest writable pool to the largest. The page shows
   it with a row action "Move..."; that opens the plan dialog (the file manager's own `plan move`), and only the start after the confirmation makes the

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # media-hub feeder (hobnix/core#928, second slice): the manifest and the storage suggestion (a plan and a start only through the change rows, never
-# alone). No root, python3 only. The adapters, the poller and the service (the poster on an imported event, the keys, the rollup and emit messages) are
+# alone). No root, python3 only. The adapters, the poller and the service (the keys, the rollup and emit messages) are
 # a Rust program now: `cargo test --locked` in extensions/media-hub runs them (unit tests and tests/service.rs, which starts the real program against a
 # local http server that serves tests/fixtures/media-hub). Every app answer there is a hand-made fixture: the adapters are UNVERIFIED against a real
 # Jellyfin or Plex.
@@ -18,7 +18,7 @@ export HS_LANG=en HS_PLAIN=1
 tab=$'\t'
 
 echo "-- manifest"
-check "a [service] table with the imported event" grep -q '^subscribe = \["pkg.media-hub.imported"\]' "$EXT/package.toml"
+check "a [service] table that subscribes to nothing (posters draws the poster)" grep -q '^subscribe = \[\]' "$EXT/package.toml"
 check "the permission list stays small (no net, no host)" bash -c "! grep -E '^permissions' '$EXT/package.toml' | grep -q 'net:\\|host:'"
 check "the adapters say they are unverified" grep -q 'UNVERIFIED' "$EXT/src/adapter.rs"
 check "the service is the Rust program of a [[binary]] table" bash -c "grep -q '^exec = \"@/bin/media-svc\"' '$EXT/package.toml' && grep -q '^path = \"bin/media-svc\"' '$EXT/package.toml'"

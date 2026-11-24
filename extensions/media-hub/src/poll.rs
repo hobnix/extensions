@@ -202,29 +202,6 @@ impl Poller {
     }
 }
 
-/// zlib's crc32 (the seed of a poster comes from it, as before).
-fn crc32(data: &[u8]) -> u32 {
-    let mut crc = !0u32;
-    for &b in data {
-        crc ^= b as u32;
-        for _ in 0..8 {
-            crc = if crc & 1 != 0 { (crc >> 1) ^ 0xEDB8_8320 } else { crc >> 1 };
-        }
-    }
-    !crc
-}
-
-/// The arguments that draw the poster of an `imported` event (after the words of the hs call), or None when the event has no title. The seed
-/// comes from the title, so a delivered-twice event draws the same file again (--force overwrites).
-pub fn poster_args(payload: Option<&serde_json::Value>) -> Option<Vec<String>> {
-    let title = clean(payload.and_then(|p| p.get("title")).and_then(|t| t.as_str()).unwrap_or(""), 80);
-    if title.is_empty() {
-        return None;
-    }
-    let seed = crc32(title.as_bytes()) % 1_000_000_000;
-    Some(["--eyebrow", "New in the library", "--title", &title, "--seed", &seed.to_string()].map(String::from).to_vec())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -328,18 +305,5 @@ mod tests {
         assert_eq!(split_path("/media/movies/Dune.mkv"), ("Dune.mkv".into(), "/media/movies".into()));
         assert_eq!(split_path("C:\\media\\a.mkv"), ("a.mkv".into(), "C:/media".into()));
         assert_eq!(split_path("/a.mkv"), ("a.mkv".into(), "/".into()));
-    }
-
-    #[test]
-    fn the_poster_arguments() {
-        let ev = serde_json::json!({"title": "A Film", "app": "radarr"});
-        let a = poster_args(Some(&ev)).unwrap();
-        assert_eq!(&a[..4], ["--eyebrow", "New in the library", "--title", "A Film"]);
-        assert!(a[4] == "--seed" && a[5].chars().all(|c| c.is_ascii_digit()));
-        assert_eq!(poster_args(Some(&ev)), poster_args(Some(&ev)), "the same title, the same seed");
-        assert_eq!(poster_args(Some(&serde_json::json!({}))), None);
-        assert_eq!(poster_args(None), None);
-        assert_eq!(poster_args(Some(&serde_json::json!({"title": "a\tb\nc"}))).unwrap()[3], "a b c");
-        assert_eq!(crc32(b"123456789"), 0xCBF4_3926);
     }
 }

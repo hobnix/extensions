@@ -3,7 +3,6 @@
 #![cfg(unix)]
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
-use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{channel, Receiver};
@@ -77,7 +76,7 @@ impl Svc {
                 }
             }
         });
-        writeln!(stdin, "{}", json!({"v":1,"type":"init","name":"media-hub","lang":"en","subscribe":["pkg.media-hub.imported"],"health_interval":1})).unwrap();
+        writeln!(stdin, "{}", json!({"v":1,"type":"init","name":"media-hub","lang":"en","subscribe":[],"health_interval":1})).unwrap();
         let mut svc = Svc { child, stdin, rx, seen: Vec::new() };
         svc.wait(|m| m["type"] == "ready");
         svc
@@ -195,32 +194,4 @@ fn a_provider_without_a_key_is_not_asked() {
     svc.wait(|m| m["type"] == "snapshot");
     svc.stop();
     assert!(jf.heads.lock().unwrap().is_empty(), "no key, no call");
-}
-
-#[test]
-fn an_imported_event_draws_a_poster_and_is_acknowledged_either_way() {
-    let dir = scratch("poster");
-    let stub = dir.join("poster-stub.sh");
-    std::fs::write(&stub, "#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$HS_STUB_LOG\"\n[ \"$STUB_FAIL\" != 1 ] || { printf 'status\\trefused\\nreason\\tno such extension\\n'; exit 1; }\nprintf 'status\\tdone\\n'\n").unwrap();
-    std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let log = dir.join("poster.log");
-    let event = |id: u64, payload: Value| json!({"v":1,"type":"event","id":id,"time":1700000000,"source":"pkg","kind":"media-hub.imported","subject":"radarr","level":"info","payload":payload});
-    for (fail, name) in [("0", "ok"), ("1", "failing")] {
-        let mut env = env_for(&dir, "", &[], "0");
-        env.push(("HS_MEDIA_POSTER_CMD", stub.display().to_string()));
-        env.push(("HS_STUB_LOG", log.display().to_string()));
-        env.push(("STUB_FAIL", fail.into()));
-        let _ = std::fs::remove_file(&log);
-        let mut svc = Svc::start(&env);
-        svc.send(event(1, json!({"title": "A Film", "app": "radarr"})));
-        svc.send(event(2, json!({"app": "radarr"})));
-        svc.wait(|m| m["type"] == "ack" && m["id"] == 1);
-        svc.wait(|m| m["type"] == "ack" && m["id"] == 2);
-        let seen = svc.stop();
-        let calls = std::fs::read_to_string(&log).unwrap();
-        assert_eq!(calls.lines().count(), 1, "{name}: the event without a title draws nothing");
-        assert!(calls.contains("--eyebrow New in the library --title A Film --seed "), "{calls}");
-        let want = if fail == "1" { "poster not drawn: no such extension" } else { "poster drawn for A Film" };
-        assert!(seen.iter().any(|m| is_log(want)(m)), "{name}: {seen:?}");
-    }
 }

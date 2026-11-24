@@ -5,6 +5,13 @@ version = "1.0.1"
 kind = "extension"
 title = "Posters drawn from the command line or the web interface"
 title_de = "Poster aus der Kommandozeile oder der Weboberfläche"
-requires_core = ">=1"
+requires_core = ">=10"   # 10 = the [service] table
 audience = "generic"
-permissions = ["web.read", "web.change", "fs.write:/var/lib/hs/posters"]
+# events.subscribe = the imported event of media-hub, which the service draws a poster for (hobnix/core#1129).
+permissions = ["web.read", "web.change", "fs.write:/var/lib/hs/posters", "events.subscribe:pkg.media-hub.imported"]
+
+# Draws the poster of a media-hub `imported` event itself (poster-svc.py calls poster-change.sh, never `hs`), so the media-hub service needs no host command.
+[service]
+exec = "@/poster-svc.py"
+subscribe = ["pkg.media-hub.imported"]
+health_interval = 30
